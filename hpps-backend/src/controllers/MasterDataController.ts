@@ -4,7 +4,9 @@ import { Department } from "../entities/Department";
 import { Position } from "../entities/Position";
 import { JobTitle } from "../entities/JobTitle";
 import { SalaryGrade } from "../entities/SalaryGrade";
-import { SalaryStep } from "../entities/SalaryStep"; // Đã thêm Import Bậc lương
+import { SalaryStep } from "../entities/SalaryStep";
+import { Province } from "../entities/Province";
+import { Ward } from "../entities/Ward";
 
 // Hàm tiện ích dùng chung để xử lý Xóa an toàn chống sập liên kết khóa ngoại
 const SAFELY_DELETE = async (repo: any, id: number, res: Response) => {
@@ -182,5 +184,35 @@ export class MasterDataController {
 
     static async deleteSalaryStep(req: Request, res: Response) {
         await SAFELY_DELETE(AppDataSource.getRepository(SalaryStep), parseInt(req.params.id as string), res);
+    }
+
+    // ==========================================
+    // 6. DANH MỤC HÀNH CHÍNH (PROVINCES & WARDS)
+    // ==========================================
+    static async getProvinces(req: Request, res: Response) {
+        try {
+            // Sử dụng chính Entity Province bạn đã chụp ảnh
+            const data = await AppDataSource.getRepository(Province).find({
+                where: { IsActive: true }, // Chỉ lấy những tỉnh đang hoạt động
+                order: { ProvinceName: "ASC" as const }
+            });
+            res.status(200).json({ success: true, data });
+        } catch (error) {
+            res.status(500).json({ success: false, message: "Lỗi lấy danh mục Tỉnh" });
+        }
+    }
+
+    static async getWardsByProvince(req: Request, res: Response) {
+        try {
+            const provinceId = parseInt(req.params.provinceId as string);
+            // Sử dụng Entity Ward với khóa ngoại ProvinceID
+            const data = await AppDataSource.getRepository(Ward).find({
+                where: { ProvinceID: provinceId, IsActive: true },
+                order: { WardName: "ASC" as const }
+            });
+            res.status(200).json({ success: true, data });
+        } catch (error) {
+            res.status(500).json({ success: false, message: "Lỗi lọc danh mục Phường/Xã" });
+        }
     }
 }

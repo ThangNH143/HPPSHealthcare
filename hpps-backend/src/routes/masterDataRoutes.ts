@@ -36,4 +36,8 @@ router.delete("/salary-steps/:id", MasterDataController.deleteSalaryStep);
 // API Cascading đổ dữ liệu Bậc lương dựa theo Ngạch lương
 router.get("/salary-grades/:gradeId/steps", MasterDataController.getSalaryStepsByGrade);
 
+// Danh mục Hànhchính 2 cấp
+router.get("/provinces", MasterDataController.getProvinces);
+router.get("/provinces/:provinceId/wards", MasterDataController.getWardsByProvince);
+
 export default router;

@@ -1,3 +1,4 @@
+// src/pages/MasterDataSettings.tsx
 import { useEffect, useState } from "react";
 import { getMasterData, createMasterData, updateMasterData, deleteMasterData } from "../services/masterDataService";
 
@@ -6,8 +7,9 @@ export default function MasterDataSettings() {
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     
-    // Lưu danh sách Ngạch lương để làm Dropdown chọn cho Chức danh & Bậc lương
+    // Lưu danh sách Ngạch lương & Tỉnh/Thành để làm Dropdown
     const [gradesList, setGradesList] = useState<any[]>([]);
+    const [provincesList, setProvincesList] = useState<any[]>([]);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<any | null>(null);
@@ -17,14 +19,17 @@ export default function MasterDataSettings() {
         name: "",
         months: 36,
         description: "",
-        gradeId: "", // Map với GradeID
-        coefficient: 1.0, // Map với Coefficient
-        isDefault: false, // Map với IsDefault
+        gradeId: "", 
+        provinceId: "", // Map với ProvinceID
+        coefficient: 1.0, 
+        isDefault: false, 
         isActive: true
     });
 
     const menuItems = [
         { id: "departments", name: "🏢 Khoa / Phòng Ban" },
+        { id: "provinces", name: "📍 Tỉnh / Thành Phố" },
+        { id: "wards", name: "🏠 Phường / Xã" },
         { id: "positions", name: "👔 Chức Vụ Quản Lý" },
         { id: "job-titles", name: "⚕️ Chức Danh Nghề Nghiệp" },
         { id: "salary-grades", name: "💰 Ngạch Lương Hệ Thống" },
@@ -35,11 +40,16 @@ export default function MasterDataSettings() {
         setLoading(true);
         try {
             const result = await getMasterData(activeTab);
-            setData(result);
+            // Xử lý linh hoạt: Nếu API trả về {data: [...]}, ta lấy result.data. 
+            // Nếu API trả về mảng trực tiếp, ta lấy result. 
+            // Nếu lỗi/undefined, ta fallback về mảng rỗng []
+            setData(result?.data || (Array.isArray(result) ? result : []));
             
-            // Tải thêm danh sách Ngạch lương để dùng cho các Dropdown
             const grades = await getMasterData("salary-grades");
-            setGradesList(grades);
+            setGradesList(grades?.data || (Array.isArray(grades) ? grades : []));
+            
+            const provs = await getMasterData("provinces");
+            setProvincesList(provs?.data || (Array.isArray(provs) ? provs : []));
         } catch (error) {
             alert("Không thể kết nối dữ liệu danh mục y tế!");
         } finally {
@@ -49,12 +59,31 @@ export default function MasterDataSettings() {
 
     useEffect(() => { loadData(); }, [activeTab]);
 
-    const getIdField = () => activeTab === "departments" ? "DepartmentID" : activeTab === "positions" ? "PositionID" : activeTab === "job-titles" ? "JobTitleID" : activeTab === "salary-grades" ? "GradeID" : "StepID";
-    const getNameField = () => activeTab === "departments" ? "DepartmentName" : activeTab === "positions" ? "PositionName" : activeTab === "job-titles" ? "JobTitleName" : activeTab === "salary-grades" ? "GradeName" : "StepName";
+    const getIdField = () => {
+        const idMap: any = {
+            "departments": "DepartmentID", "positions": "PositionID", 
+            "job-titles": "JobTitleID", "salary-grades": "GradeID", 
+            "salary-steps": "StepID", "provinces": "ProvinceID", "wards": "WardID"
+        };
+        return idMap[activeTab] || "ID";
+    };
+
+    const getNameField = () => {
+        const nameMap: any = {
+            "departments": "DepartmentName", "positions": "PositionName", 
+            "job-titles": "JobTitleName", "salary-grades": "GradeName", 
+            "salary-steps": "StepName", "provinces": "ProvinceName", "wards": "WardName"
+        };
+        return nameMap[activeTab] || "Name";
+    };
 
     const handleOpenAdd = () => {
         setEditingItem(null);
-        setFormData({ code: "", name: "", months: 36, description: "", gradeId: "", coefficient: 1.0, isDefault: false, isActive: true });
+        setFormData({ 
+            code: "", name: "", months: 36, description: "", 
+            gradeId: "", provinceId: "", coefficient: 1.0, 
+            isDefault: false, isActive: true 
+        });
         setIsModalOpen(true);
     };
 
@@ -63,11 +92,15 @@ export default function MasterDataSettings() {
         const nameKey = getNameField();
         
         setFormData({
-            code: activeTab === "departments" ? item.DepartmentCode : activeTab === "salary-grades" ? item.GradeCode : "",
+            code: activeTab === "departments" ? item.DepartmentCode : 
+                  activeTab === "salary-grades" ? item.GradeCode : 
+                  activeTab === "provinces" ? item.ProvinceCode : 
+                  activeTab === "wards" ? item.WardCode : "",
             name: item[nameKey],
             months: item.HoldingMonths || 36,
             description: item.Description || "",
             gradeId: item.GradeID || "",
+            provinceId: item.ProvinceID || "",
             coefficient: item.Coefficient || 1.0,
             isDefault: item.IsDefault || false,
             isActive: item.IsActive !== false
@@ -97,6 +130,13 @@ export default function MasterDataSettings() {
             payload["GradeID"] = formData.gradeId ? Number(formData.gradeId) : null;
             payload["Coefficient"] = Number(formData.coefficient);
             payload["IsDefault"] = formData.isDefault;
+        }
+        if (activeTab === "provinces") {
+            payload["ProvinceCode"] = formData.code;
+        }
+        if (activeTab === "wards") {
+            payload["WardCode"] = formData.code;
+            payload["ProvinceID"] = formData.provinceId ? Number(formData.provinceId) : null;
         }
 
         try {
@@ -136,7 +176,11 @@ export default function MasterDataSettings() {
                     {menuItems.map((item) => (
                         <button
                             key={item.id}
-                            onClick={() => { setActiveTab(item.id); setIsModalOpen(false); }}
+                            onClick={() => { 
+                                setActiveTab(item.id); 
+                                setData([]); // THÊM DÒNG NÀY: Xóa sạch data cũ ngay lập tức để chặn React render nhầm
+                                setIsModalOpen(false); 
+                            }}
                             className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-xl transition-all ${
                                 activeTab === item.id 
                                     ? "bg-blue-50 text-blue-700 shadow-sm shadow-blue-100/50" 
@@ -167,46 +211,68 @@ export default function MasterDataSettings() {
                         <thead className="sticky top-0 bg-[#F8FAFC] z-10 border-b border-gray-100">
                             <tr>
                                 <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider w-24">ID</th>
-                                {(activeTab === "departments" || activeTab === "salary-grades") && <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider">Mã Code</th>}
+                                
+                                {["departments", "salary-grades", "provinces", "wards"].includes(activeTab) && (
+                                    <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider">Mã Code</th>
+                                )}
                                 
                                 <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider">Tên Danh Mục</th>
                                 
-                                {(activeTab === "job-titles" || activeTab === "salary-steps") && <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider">Thuộc Ngạch Lương</th>}
-                                {activeTab === "salary-grades" && <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider">Tháng giữ bậc</th>}
-                                {activeTab === "salary-steps" && <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider">Hệ số</th>}
+                                {(activeTab === "job-titles" || activeTab === "salary-steps") && (
+                                    <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider">Thuộc Ngạch Lương</th>
+                                )}
+                                {activeTab === "wards" && (
+                                    <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider">Thuộc Tỉnh/Thành</th>
+                                )}
+                                {activeTab === "salary-grades" && (
+                                    <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider">Tháng giữ bậc</th>
+                                )}
+                                {activeTab === "salary-steps" && (
+                                    <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider">Hệ số</th>
+                                )}
                                 
                                 <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider text-center">Trạng Thái</th>
                                 <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider text-center">Thao Tác</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {/* SỬ DỤNG BIẾN LOADING Ở ĐÂY */}
                             {loading ? (
                                 <tr><td colSpan={7} className="text-center py-10 text-xs text-gray-500 font-medium">⏳ Đang tải dữ liệu y tế...</td></tr>
-                            ) : data.length === 0 ? (
+                            ) : (!data || data.length === 0) ? (
                                 <tr><td colSpan={7} className="text-center py-10 text-xs text-gray-500">Chưa có dữ liệu cho danh mục này.</td></tr>
                             ) : (
-                                data.map((row) => {
+                                data.map((row, index) => {
                                     const idKey = getIdField();
                                     const nameKey = getNameField();
-                                    // Tìm tên Ngạch lương dựa trên GradeID
+                                    
                                     const gradeName = gradesList.find(g => g.GradeID === row.GradeID)?.GradeName || "---";
+                                    const provinceName = provincesList.find(p => p.ProvinceID === row.ProvinceID)?.ProvinceName || "---";
 
                                     return (
-                                        <tr key={row[idKey]} className="hover:bg-blue-50/30">
+                                        // Cập nhật thẻ tr: Dùng idKey, nếu undefined thì lấy id, nếu vẫn không có thì dùng index
+                                        <tr key={row[idKey] || row.id || `row-${index}`} className="hover:bg-blue-50/30">
                                             <td className="px-6 py-3.5 text-xs text-gray-400">#{row[idKey]}</td>
                                             
-                                            {(activeTab === "departments" || activeTab === "salary-grades") && 
-                                                <td className="px-6 py-3.5 text-xs font-bold text-blue-600">{row.DepartmentCode || row.GradeCode}</td>
-                                            }
+                                            {["departments", "salary-grades", "provinces", "wards"].includes(activeTab) && (
+                                                <td className="px-6 py-3.5 text-xs font-bold text-blue-600">
+                                                    {row.DepartmentCode || row.GradeCode || row.ProvinceCode || row.WardCode}
+                                                </td>
+                                            )}
 
                                             <td className="px-6 py-3.5 text-xs font-bold text-[#1E293B]">{row[nameKey]}</td>
                                             
-                                            {(activeTab === "job-titles" || activeTab === "salary-steps") && 
+                                            {(activeTab === "job-titles" || activeTab === "salary-steps") && (
                                                 <td className="px-6 py-3.5 text-xs font-medium text-emerald-600">{gradeName}</td>
-                                            }
-                                            {activeTab === "salary-grades" && <td className="px-6 py-3.5 text-xs">{row.HoldingMonths} tháng</td>}
-                                            {activeTab === "salary-steps" && <td className="px-6 py-3.5 text-xs font-bold text-red-500">{row.Coefficient}</td>}
+                                            )}
+                                            {activeTab === "wards" && (
+                                                <td className="px-6 py-3.5 text-xs font-medium text-emerald-600">{provinceName}</td>
+                                            )}
+                                            {activeTab === "salary-grades" && (
+                                                <td className="px-6 py-3.5 text-xs">{row.HoldingMonths} tháng</td>
+                                            )}
+                                            {activeTab === "salary-steps" && (
+                                                <td className="px-6 py-3.5 text-xs font-bold text-red-500">{row.Coefficient}</td>
+                                            )}
 
                                             <td className="px-6 py-3.5 text-xs text-center">
                                                 {row.IsActive === false ? (
@@ -228,7 +294,7 @@ export default function MasterDataSettings() {
                 </div>
             </div>
 
-            {/* POPUP MODAL THÔNG MINH */}
+            {/* POPUP MODAL */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50">
                     <div className="bg-white rounded-2xl w-[480px] shadow-2xl overflow-hidden">
@@ -238,7 +304,7 @@ export default function MasterDataSettings() {
                         </div>
 
                         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                            {(activeTab === "departments" || activeTab === "salary-grades") && (
+                            {["departments", "salary-grades", "provinces", "wards"].includes(activeTab) && (
                                 <div>
                                     <label className="block text-xs font-bold text-gray-500 mb-1">MÃ CODE</label>
                                     <input type="text" value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value })} className="w-full px-3 py-2 border rounded-xl" required />
@@ -250,7 +316,6 @@ export default function MasterDataSettings() {
                                 <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-3 py-2 border rounded-xl" required />
                             </div>
 
-                            {/* Dropdown Ngạch Lương cho Chức Danh và Bậc Lương */}
                             {(activeTab === "job-titles" || activeTab === "salary-steps") && (
                                 <div>
                                     <label className="block text-xs font-bold text-gray-500 mb-1">MAP VỚI NGẠCH LƯƠNG</label>
@@ -263,6 +328,18 @@ export default function MasterDataSettings() {
                                 </div>
                             )}
 
+                            {activeTab === "wards" && (
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">MAP VỚI TỈNH / THÀNH PHỐ</label>
+                                    <select value={formData.provinceId} onChange={(e) => setFormData({ ...formData, provinceId: e.target.value })} className="w-full px-3 py-2 border rounded-xl bg-white" required>
+                                        <option value="">-- Chọn Tỉnh/Thành phố --</option>
+                                        {provincesList.map(p => (
+                                            <option key={p.ProvinceID} value={p.ProvinceID}>{p.ProvinceCode} - {p.ProvinceName}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
                             {activeTab === "salary-grades" && (
                                 <div>
                                     <label className="block text-xs font-bold text-gray-500 mb-1">THÁNG GIỮ BẬC (ĐỊNH KỲ)</label>
@@ -270,7 +347,6 @@ export default function MasterDataSettings() {
                                 </div>
                             )}
 
-                            {/* Trường riêng cho Bậc lương */}
                             {activeTab === "salary-steps" && (
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>

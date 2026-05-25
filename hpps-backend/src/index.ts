@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { AppDataSource } from "./config/database";
 import provinceRoutes from "./routes/provinceRoutes";
+import wardRoutes from './routes/wardRoutes';
 import departmentRoutes from "./routes/departmentRoutes";
 import employeeRoutes from "./routes/employeeRoutes";
 import masterDataRoutes from "./routes/masterDataRoutes";
@@ -17,6 +18,7 @@ app.use(express.json());
 
 // Đăng ký các API Routes
 app.use("/api", provinceRoutes);
+app.use('/api/', wardRoutes);
 app.use("/api", departmentRoutes);
 app.use("/api", employeeRoutes);
 app.use("/api", masterDataRoutes);

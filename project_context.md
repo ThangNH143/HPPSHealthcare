@@ -62,3 +62,43 @@
     3. **Split-Pane Detail (Phân tách 30/70):** Dùng cho thao tác chi tiết (như Chốt lương). Pane trái (30%) hiển thị danh sách. Pane phải (70%) hiển thị chi tiết dạng Form trắng. **Ràng buộc: Nhóm nút hành động (Lưu nháp, Chốt) BẮT BUỘC đặt cố định ở góc trên cùng bên phải của Pane phải.**
     4. **Interactive Calendar (Xếp lịch/Chấm công):** Giao diện lưới lịch toàn màn hình. Hỗ trợ thao tác kéo-thả (Drag & Drop) khối ca trực mượt mà. Phân biệt ca trực bằng màu khối (Ca 12h: nền xanh lơ; Ca 24h: nền xanh đậm, chữ trắng).
     5. **Mobile-First ESS (Cổng nhân viên):** Bố cục không dùng Sidebar. Sử dụng Bottom Navigation. Header thiết kế dải sóng cong chứa Avatar. Các nút chức năng dạng Card to, bo góc lớn (16px), đổ bóng nổi rõ để dễ chạm bằng ngón tay.
+
+# 🏥 BỐI CẢNH DỰ ÁN: HỆ THỐNG QUẢN LÝ NHÂN SỰ - TIỀN LƯƠNG Y TẾ (PHASE 1)
+
+## 1. STACK CÔNG NGHỆ
+- **Frontend:** ReactJS, Vite, TypeScript, Tailwind CSS, Axios, React Router DOM.
+- **Backend:** Node.js, Express, TypeScript, TypeORM, mssql.
+- **Database:** SQL Server.
+- **Môi trường Deploy Server:** IIS (chạy Frontend qua Sub-application `/QLNhanSuTienLuong`) và PM2 (chạy ngầm Backend ở Port `5000`).
+- **Môi trường Localhost:** Frontend chạy Port `5173` (gọi API qua proxy hoặc `.env` URL), Backend chạy Port `5000` (tiền tố `/api`).
+
+## 2. CẤU TRÚC DATABASE (MASTER DATA) VÀ RÀNG BUỘC
+Hệ thống hiện tại có 7 danh mục lõi với cấu trúc Entity đã chốt chuẩn:
+1. `Dim_Departments`: Khoa/Phòng (Có `DepartmentCode`, `DepartmentName`).
+2. `Dim_Positions`: Chức vụ quản lý (`PositionName`).
+3. `Dim_JobTitles`: Chức danh nghề nghiệp (Có khóa ngoại `GradeID` trỏ về Ngạch).
+4. `Dim_SalaryGrades`: Ngạch lương (`GradeCode`, `GradeName`, `HoldingMonths`).
+5. `Dim_SalarySteps`: Bậc lương (Khóa ngoại `GradeID`, `Coefficient` - Hệ số, `IsDefault` - Bậc khởi điểm).
+6. `Dim_Provinces`: Tỉnh / Thành phố (`ProvinceID`, `ProvinceCode`, `ProvinceName`).
+7. `Dim_Wards`: Phường / Xã (Khóa ngoại **trực tiếp** `ProvinceID` trỏ về Tỉnh, `WardCode`, `WardName`).
+*Lưu ý quan trọng: KHÔNG CÓ cấp Quận/Huyện. Cascading địa chỉ chỉ có 2 cấp: Tỉnh/Thành -> Phường/Xã.*
+
+## 3. TIẾN ĐỘ HIỆN TẠI (NHỮNG GÌ ĐÃ HOÀN THÀNH)
+- [x] Đã cấu hình thành công kết nối TypeORM với SQL Server.
+- [x] Đã viết xong 100% Backend API (Entities, Controller, Routes) cho cả 7 danh mục Master Data.
+- [x] Đã thiết lập xong quy trình Deploy lên Server thực tế (Build TypeScript, config `web.config` cho IIS React Router, PM2 restart).
+- [x] Đã tạo khung Layout chuẩn ERP cho `EmployeeForm.tsx` (Form Thêm mới Nhân sự) gồm 4 Tabs và Sticky Footer.
+- [x] Đã hoàn thiện thiết kế UI cho Tab 1 (Hành chính & Địa chỉ) trong `EmployeeForm.tsx` với logic Cascading 2 cấp (Tỉnh -> Xã).
+
+## 4. VẤN ĐỀ ĐANG TỒN ĐỌNG (CẦN FIX NGAY TRONG PHIÊN CHAT MỚI)
+- **Bug tại `MasterDataSettings.tsx` (Frontend Local):** - Đã gọi API danh mục Tỉnh (`provinces`) và Xã (`wards`) nhưng bảng UI chưa hiển thị được dữ liệu.
+  - *Nguyên nhân:* File UI hiện tại chưa có logic mapping trường dữ liệu tương ứng cho `provinces` và `wards` trong các hàm render bảng (như thiếu hàm `getDisplayName`, `getCodeValue`, hoặc `getIdField`, `getNameField` chưa bao gồm 2 danh mục này). Cần cấu trúc lại logic render bảng cho chuẩn với 7 Tab.
+
+## 5. CÁC BƯỚC TIẾP THEO (NEXT STEPS)
+1. **Fix triệt để `MasterDataSettings.tsx`:** Sửa lại logic render động trong bảng UI để hiển thị đúng dữ liệu `ProvinceName`, `WardName`, `WardID`...
+2. **Seed Data:** Viết Script SQL đổ nhanh dữ liệu Tỉnh/Thành và Phường/Xã mồi vào Database (thay vì nhập tay).
+3. **Tiếp tục Form Nhân sự:** Thiết kế UI và logic gọi Master Data cho các Tab còn lại trong `EmployeeForm.tsx`:
+   - Tab 2: Trình độ & Công tác (Dropdown Khoa/phòng, Chức vụ).
+   - Tab 3: Chứng chỉ Hành nghề & Đảng.
+   - Tab 4: Tiền lương (Cascading Chức danh -> Ngạch -> Bậc lương).
+4. **Backend Employee:** Bắt đầu tạo Entity và API CRUD cho bảng lõi `Dim_Employees` để lưu trữ dữ liệu từ Form trên.
