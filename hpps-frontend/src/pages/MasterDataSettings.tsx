@@ -180,42 +180,49 @@ export default function MasterDataSettings() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {data.map((row, index) => {
-                                const idKey = getIdField();
-                                const nameKey = getNameField();
-                                // Tìm tên Ngạch lương dựa trên GradeID
-                                const gradeName = gradesList.find(g => g.GradeID === row.GradeID)?.GradeName || "---";
+                            {/* SỬ DỤNG BIẾN LOADING Ở ĐÂY */}
+                            {loading ? (
+                                <tr><td colSpan={7} className="text-center py-10 text-xs text-gray-500 font-medium">⏳ Đang tải dữ liệu y tế...</td></tr>
+                            ) : data.length === 0 ? (
+                                <tr><td colSpan={7} className="text-center py-10 text-xs text-gray-500">Chưa có dữ liệu cho danh mục này.</td></tr>
+                            ) : (
+                                data.map((row) => {
+                                    const idKey = getIdField();
+                                    const nameKey = getNameField();
+                                    // Tìm tên Ngạch lương dựa trên GradeID
+                                    const gradeName = gradesList.find(g => g.GradeID === row.GradeID)?.GradeName || "---";
 
-                                return (
-                                    <tr key={row[idKey]} className="hover:bg-blue-50/30">
-                                        <td className="px-6 py-3.5 text-xs text-gray-400">#{row[idKey]}</td>
-                                        
-                                        {(activeTab === "departments" || activeTab === "salary-grades") && 
-                                            <td className="px-6 py-3.5 text-xs font-bold text-blue-600">{row.DepartmentCode || row.GradeCode}</td>
-                                        }
+                                    return (
+                                        <tr key={row[idKey]} className="hover:bg-blue-50/30">
+                                            <td className="px-6 py-3.5 text-xs text-gray-400">#{row[idKey]}</td>
+                                            
+                                            {(activeTab === "departments" || activeTab === "salary-grades") && 
+                                                <td className="px-6 py-3.5 text-xs font-bold text-blue-600">{row.DepartmentCode || row.GradeCode}</td>
+                                            }
 
-                                        <td className="px-6 py-3.5 text-xs font-bold text-[#1E293B]">{row[nameKey]}</td>
-                                        
-                                        {(activeTab === "job-titles" || activeTab === "salary-steps") && 
-                                            <td className="px-6 py-3.5 text-xs font-medium text-emerald-600">{gradeName}</td>
-                                        }
-                                        {activeTab === "salary-grades" && <td className="px-6 py-3.5 text-xs">{row.HoldingMonths} tháng</td>}
-                                        {activeTab === "salary-steps" && <td className="px-6 py-3.5 text-xs font-bold text-red-500">{row.Coefficient}</td>}
+                                            <td className="px-6 py-3.5 text-xs font-bold text-[#1E293B]">{row[nameKey]}</td>
+                                            
+                                            {(activeTab === "job-titles" || activeTab === "salary-steps") && 
+                                                <td className="px-6 py-3.5 text-xs font-medium text-emerald-600">{gradeName}</td>
+                                            }
+                                            {activeTab === "salary-grades" && <td className="px-6 py-3.5 text-xs">{row.HoldingMonths} tháng</td>}
+                                            {activeTab === "salary-steps" && <td className="px-6 py-3.5 text-xs font-bold text-red-500">{row.Coefficient}</td>}
 
-                                        <td className="px-6 py-3.5 text-xs text-center">
-                                            {row.IsActive === false ? (
-                                                <span className="bg-red-50 text-red-600 px-2.5 py-1 rounded-lg text-[10px]">Tạm Ngưng</span>
-                                            ) : (
-                                                <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg text-[10px]">Hoạt Động</span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-3.5 text-xs text-center">
-                                            <button onClick={() => handleOpenEdit(row)} className="text-blue-600 hover:text-blue-800 mr-4">Sửa</button>
-                                            <button onClick={() => handleDelete(row[idKey])} className="text-gray-400 hover:text-red-600">Xóa</button>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
+                                            <td className="px-6 py-3.5 text-xs text-center">
+                                                {row.IsActive === false ? (
+                                                    <span className="bg-red-50 text-red-600 px-2.5 py-1 rounded-lg text-[10px]">Tạm Ngưng</span>
+                                                ) : (
+                                                    <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg text-[10px]">Hoạt Động</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-3.5 text-xs text-center">
+                                                <button onClick={() => handleOpenEdit(row)} className="text-blue-600 hover:text-blue-800 mr-4">Sửa</button>
+                                                <button onClick={() => handleDelete(row[idKey])} className="text-gray-400 hover:text-red-600">Xóa</button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
                         </tbody>
                     </table>
                 </div>
