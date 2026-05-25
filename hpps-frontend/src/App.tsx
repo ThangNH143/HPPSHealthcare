@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import EmployeeList from "./pages/EmployeeList";
+import MasterDataSettings from "./pages/MasterDataSettings";
 
 function App() {
     return (
@@ -7,6 +8,7 @@ function App() {
             <div className="min-h-screen bg-gray-50">
                 <Routes>
                     <Route path="/" element={<EmployeeList />} />
+                    <Route path="/settings" element={<MasterDataSettings />} />
                 </Routes>
             </div>
         </BrowserRouter>

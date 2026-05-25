@@ -15,3 +15,5 @@ Thumbs.db
 .env
 *.tmp
 *.swp
+temp/reports/*
+!temp/reports/.gitkeep

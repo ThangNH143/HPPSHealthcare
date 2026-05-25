@@ -7,4 +7,7 @@ export class Position {
 
     @Column({ name: "PositionName", type: "nvarchar", length: 100 })
     PositionName!: string;
+
+    @Column({ name: "IsActive", type: "bit", default: 1 })
+    IsActive!: boolean;
 }

@@ -10,4 +10,7 @@ export class Department {
 
     @Column({ name: "DepartmentName", type: "nvarchar", length: 255 })
     DepartmentName!: string;
+
+    @Column({ name: "IsActive", type: "bit", default: 1 })
+    IsActive!: boolean;
 }

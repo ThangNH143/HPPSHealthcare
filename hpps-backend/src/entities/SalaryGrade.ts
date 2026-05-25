@@ -13,4 +13,7 @@ export class SalaryGrade {
 
     @Column({ name: "HoldingMonths", type: "int", default: 36 })
     HoldingMonths!: number;
+
+    @Column({ name: "IsActive", type: "bit", default: 1 })
+    IsActive!: boolean;
 }

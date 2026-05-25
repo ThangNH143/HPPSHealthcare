@@ -19,4 +19,7 @@ export class Ward {
     @ManyToOne(() => Province, province => province.wards)
     @JoinColumn({ name: "ProvinceID" })
     province!: Province;
+
+    @Column({ name: "IsActive", type: "bit", default: 1 })
+    IsActive!: boolean;
 }

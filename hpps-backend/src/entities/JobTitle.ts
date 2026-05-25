@@ -13,4 +13,7 @@ export class JobTitle {
 
     @Column({ name: "Description", type: "nvarchar", nullable: true })
     Description!: string;
+
+    @Column({ name: "IsActive", type: "bit", default: 1 })
+    IsActive!: boolean;
 }

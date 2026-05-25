@@ -5,6 +5,7 @@ import { AppDataSource } from "./config/database";
 import provinceRoutes from "./routes/provinceRoutes";
 import departmentRoutes from "./routes/departmentRoutes";
 import employeeRoutes from "./routes/employeeRoutes";
+import masterDataRoutes from "./routes/masterDataRoutes";
 
 dotenv.config();
 
@@ -18,6 +19,7 @@ app.use(express.json());
 app.use("/api", provinceRoutes);
 app.use("/api", departmentRoutes);
 app.use("/api", employeeRoutes);
+app.use("/api", masterDataRoutes);
 
 // Khởi tạo kết nối Database
 AppDataSource.initialize()

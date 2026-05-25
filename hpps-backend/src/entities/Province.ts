@@ -15,4 +15,7 @@ export class Province {
     // Liên kết 1 Tỉnh có nhiều Phường/Xã
     @OneToMany(() => Ward, ward => ward.province)
     wards!: Ward[];
+
+    @Column({ name: "IsActive", type: "bit", default: 1 })
+    IsActive!: boolean;
 }

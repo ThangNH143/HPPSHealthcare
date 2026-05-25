@@ -16,4 +16,7 @@ export class SalaryStep {
 
     @Column({ name: "IsDefault", type: "bit", default: 0 })
     IsDefault!: boolean;
+
+    @Column({ name: "IsActive", type: "bit", default: 1 })
+    IsActive!: boolean;
 }
