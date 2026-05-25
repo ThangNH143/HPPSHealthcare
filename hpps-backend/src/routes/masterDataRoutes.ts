@@ -27,4 +27,13 @@ router.post("/salary-grades", MasterDataController.createSalaryGrade);
 router.put("/salary-grades/:id", MasterDataController.updateSalaryGrade);
 router.delete("/salary-grades/:id", MasterDataController.deleteSalaryGrade);
 
+// Bậc lương
+router.get("/salary-steps", MasterDataController.getSalarySteps);
+router.post("/salary-steps", MasterDataController.createSalaryStep);
+router.put("/salary-steps/:id", MasterDataController.updateSalaryStep);
+router.delete("/salary-steps/:id", MasterDataController.deleteSalaryStep);
+
+// API Cascading đổ dữ liệu Bậc lương dựa theo Ngạch lương
+router.get("/salary-grades/:gradeId/steps", MasterDataController.getSalaryStepsByGrade);
+
 export default router;

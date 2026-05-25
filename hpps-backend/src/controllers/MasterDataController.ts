@@ -4,6 +4,7 @@ import { Department } from "../entities/Department";
 import { Position } from "../entities/Position";
 import { JobTitle } from "../entities/JobTitle";
 import { SalaryGrade } from "../entities/SalaryGrade";
+import { SalaryStep } from "../entities/SalaryStep"; // Đã thêm Import Bậc lương
 
 // Hàm tiện ích dùng chung để xử lý Xóa an toàn chống sập liên kết khóa ngoại
 const SAFELY_DELETE = async (repo: any, id: number, res: Response) => {
@@ -14,7 +15,7 @@ const SAFELY_DELETE = async (repo: any, id: number, res: Response) => {
         if (error.message.includes("REFERENCE constraint") || error.message.includes("FOREIGN KEY")) {
             return res.status(400).json({ 
                 success: false, 
-                message: "CẢNH BÁO: Dữ liệu danh mục này đã được sử dụng cho hồ sơ nhân sự lịch sử. Không thể xóa cứng! Vui lòng dùng tính năng 'Tạm ngưng' để ẩn danh mục này một cách an toàn." 
+                message: "CẢNH BÁO: Dữ liệu danh mục này đã được sử dụng. Không thể xóa cứng! Vui lòng dùng tính năng 'Tạm ngưng'." 
             });
         }
         return res.status(500).json({ success: false, message: "Lỗi hệ sinh thái dữ liệu Server" });
@@ -41,7 +42,6 @@ export class MasterDataController {
     static async updateDepartment(req: Request, res: Response) {
         try {
             const repo = AppDataSource.getRepository(Department);
-            // Đã thêm as string
             const item = await repo.findOneBy({ DepartmentID: parseInt(req.params.id as string) });
             if (!item) return res.status(404).json({ success: false, message: "Không tìm thấy" });
             repo.merge(item, req.body);
@@ -49,7 +49,6 @@ export class MasterDataController {
         } catch (error) { res.status(500).json({ success: false, message: "Lỗi Server" }); }
     }
     static async deleteDepartment(req: Request, res: Response) {
-        // Đã thêm as string
         await SAFELY_DELETE(AppDataSource.getRepository(Department), parseInt(req.params.id as string), res);
     }
 
@@ -138,5 +137,50 @@ export class MasterDataController {
     }
     static async deleteSalaryGrade(req: Request, res: Response) {
         await SAFELY_DELETE(AppDataSource.getRepository(SalaryGrade), parseInt(req.params.id as string), res);
+    }
+
+    // ==========================================
+    // 5. DANH MỤC BẬC LƯƠNG (SALARY STEPS)
+    // ==========================================
+    static async getSalarySteps(req: Request, res: Response) {
+        try {
+            const data = await AppDataSource.getRepository(SalaryStep).find({ 
+                order: { GradeID: "ASC", StepName: "ASC" as const } 
+            });
+            res.status(200).json({ success: true, data });
+        } catch (error) { res.status(500).json({ success: false, message: "Lỗi Server" }); }
+    }
+
+    static async getSalaryStepsByGrade(req: Request, res: Response) {
+        try {
+            const gradeId = parseInt(req.params.gradeId as string);
+            const data = await AppDataSource.getRepository(SalaryStep).find({
+                where: { GradeID: gradeId, IsActive: true },
+                order: { StepName: "ASC" as const }
+            });
+            res.status(200).json({ success: true, data });
+        } catch (error) { res.status(500).json({ success: false, message: "Lỗi Server" }); }
+    }
+
+    static async createSalaryStep(req: Request, res: Response) {
+        try {
+            const repo = AppDataSource.getRepository(SalaryStep);
+            const result = await repo.save(repo.create(req.body));
+            res.status(201).json({ success: true, data: result });
+        } catch (error) { res.status(500).json({ success: false, message: "Lỗi Server" }); }
+    }
+
+    static async updateSalaryStep(req: Request, res: Response) {
+        try {
+            const repo = AppDataSource.getRepository(SalaryStep);
+            const item = await repo.findOneBy({ StepID: parseInt(req.params.id as string) });
+            if (!item) return res.status(404).json({ success: false, message: "Không tìm thấy" });
+            repo.merge(item, req.body);
+            res.status(200).json({ success: true, data: await repo.save(item) });
+        } catch (error) { res.status(500).json({ success: false, message: "Lỗi Server" }); }
+    }
+
+    static async deleteSalaryStep(req: Request, res: Response) {
+        await SAFELY_DELETE(AppDataSource.getRepository(SalaryStep), parseInt(req.params.id as string), res);
     }
 }

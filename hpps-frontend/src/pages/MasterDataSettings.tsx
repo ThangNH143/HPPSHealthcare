@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { getMasterData, createMasterData, updateMasterData, deleteMasterData } from "../services/masterDataService";
 
 export default function MasterDataSettings() {
-    // Đã sửa mặc định khởi tạo
     const [activeTab, setActiveTab] = useState("departments");
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    
+    // Lưu danh sách Ngạch lương để làm Dropdown chọn cho Chức danh & Bậc lương
+    const [gradesList, setGradesList] = useState<any[]>([]);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<any | null>(null);
@@ -15,15 +17,18 @@ export default function MasterDataSettings() {
         name: "",
         months: 36,
         description: "",
+        gradeId: "", // Map với GradeID
+        coefficient: 1.0, // Map với Coefficient
+        isDefault: false, // Map với IsDefault
         isActive: true
     });
 
-    // BƯỚC SỬA LỖI 1: Đồng bộ ID tab khớp 100% với tên Route Backend (Thêm gạch ngang)
     const menuItems = [
-        { id: "departments", name: "🏢 DM Khoa / Phòng Ban" },
-        { id: "positions", name: "👔 DM Chức Vụ" },
-        { id: "job-titles", name: "⚕️ DM Chức Danh Nghề Nghiệp" },
-        { id: "salary-grades", name: "💰 DM Ngạch Lương Hệ Thống" },
+        { id: "departments", name: "🏢 Khoa / Phòng Ban" },
+        { id: "positions", name: "👔 Chức Vụ Quản Lý" },
+        { id: "job-titles", name: "⚕️ Chức Danh Nghề Nghiệp" },
+        { id: "salary-grades", name: "💰 Ngạch Lương Hệ Thống" },
+        { id: "salary-steps", name: "📈 Bậc Lương & Hệ Số" }
     ];
 
     const loadData = async () => {
@@ -31,6 +36,10 @@ export default function MasterDataSettings() {
         try {
             const result = await getMasterData(activeTab);
             setData(result);
+            
+            // Tải thêm danh sách Ngạch lương để dùng cho các Dropdown
+            const grades = await getMasterData("salary-grades");
+            setGradesList(grades);
         } catch (error) {
             alert("Không thể kết nối dữ liệu danh mục y tế!");
         } finally {
@@ -38,17 +47,14 @@ export default function MasterDataSettings() {
         }
     };
 
-    useEffect(() => {
-        loadData();
-    }, [activeTab]);
+    useEffect(() => { loadData(); }, [activeTab]);
 
-    // BƯỚC SỬA LỖI 2: Cập nhật lại các điều kiện if/else
-    const getIdField = () => activeTab === "departments" ? "DepartmentID" : activeTab === "positions" ? "PositionID" : activeTab === "job-titles" ? "JobTitleID" : "GradeID";
-    const getNameField = () => activeTab === "departments" ? "DepartmentName" : activeTab === "positions" ? "PositionName" : activeTab === "job-titles" ? "JobTitleName" : "GradeName";
+    const getIdField = () => activeTab === "departments" ? "DepartmentID" : activeTab === "positions" ? "PositionID" : activeTab === "job-titles" ? "JobTitleID" : activeTab === "salary-grades" ? "GradeID" : "StepID";
+    const getNameField = () => activeTab === "departments" ? "DepartmentName" : activeTab === "positions" ? "PositionName" : activeTab === "job-titles" ? "JobTitleName" : activeTab === "salary-grades" ? "GradeName" : "StepName";
 
     const handleOpenAdd = () => {
         setEditingItem(null);
-        setFormData({ code: "", name: "", months: 36, description: "", isActive: true });
+        setFormData({ code: "", name: "", months: 36, description: "", gradeId: "", coefficient: 1.0, isDefault: false, isActive: true });
         setIsModalOpen(true);
     };
 
@@ -61,6 +67,9 @@ export default function MasterDataSettings() {
             name: item[nameKey],
             months: item.HoldingMonths || 36,
             description: item.Description || "",
+            gradeId: item.GradeID || "",
+            coefficient: item.Coefficient || 1.0,
+            isDefault: item.IsDefault || false,
             isActive: item.IsActive !== false
         });
         setIsModalOpen(true);
@@ -76,10 +85,18 @@ export default function MasterDataSettings() {
         payload["IsActive"] = formData.isActive;
 
         if (activeTab === "departments") payload["DepartmentCode"] = formData.code;
-        if (activeTab === "job-titles") payload["Description"] = formData.description; // Đã sửa
-        if (activeTab === "salary-grades") { // Đã sửa
+        if (activeTab === "job-titles") {
+            payload["Description"] = formData.description;
+            payload["GradeID"] = formData.gradeId ? Number(formData.gradeId) : null;
+        }
+        if (activeTab === "salary-grades") {
             payload["GradeCode"] = formData.code;
             payload["HoldingMonths"] = Number(formData.months);
+        }
+        if (activeTab === "salary-steps") {
+            payload["GradeID"] = formData.gradeId ? Number(formData.gradeId) : null;
+            payload["Coefficient"] = Number(formData.coefficient);
+            payload["IsDefault"] = formData.isDefault;
         }
 
         try {
@@ -100,9 +117,7 @@ export default function MasterDataSettings() {
         if (window.confirm("Bạn có chắc chắn muốn xóa vĩnh viễn danh mục này không?")) {
             try {
                 const res = await deleteMasterData(activeTab, id);
-                if (res.success) {
-                    loadData();
-                }
+                if (res.success) loadData();
             } catch (error: any) {
                 alert(error.response?.data?.message || "Lỗi xóa danh mục.");
             }
@@ -111,6 +126,7 @@ export default function MasterDataSettings() {
 
     return (
         <div className="flex h-screen w-screen overflow-hidden bg-[#F4F7FC]">
+            {/* CỘT TRÁI: MENU DANH MỤC */}
             <div className="w-72 bg-white border-r border-gray-200 flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-10">
                 <div className="p-6 border-b border-gray-100">
                     <h2 className="text-xl font-bold text-[#1E293B]">Thiết lập Danh mục</h2>
@@ -133,173 +149,142 @@ export default function MasterDataSettings() {
                 </nav>
             </div>
 
+            {/* CỘT PHẢI: BẢNG DỮ LIỆU */}
             <div className="flex-1 flex flex-col overflow-hidden p-8">
                 <div className="flex justify-between items-end mb-6">
                     <div>
                         <h2 className="text-2xl font-bold text-[#1E293B]">
                             {menuItems.find(m => m.id === activeTab)?.name}
                         </h2>
-                        <p className="text-xs text-gray-400 mt-1">Dữ liệu đồng bộ thời gian thực với cơ sở dữ liệu SQL Server.</p>
                     </div>
-                    <button 
-                        onClick={handleOpenAdd}
-                        className="bg-blue-600 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-md shadow-blue-600/10 hover:bg-blue-700 transition-all"
-                    >
+                    <button onClick={handleOpenAdd} className="bg-blue-600 text-white text-xs font-bold px-5 py-2.5 rounded-xl hover:bg-blue-700 transition-all">
                         + Thêm Mới Danh Mục
                     </button>
                 </div>
 
                 <div className="flex-1 overflow-auto bg-white rounded-2xl border border-gray-100 shadow-[0_12px_30px_rgba(14,165,233,0.06)]">
                     <table className="min-w-full table-auto border-collapse text-left relative">
-                        <thead className="sticky top-0 bg-[#F8FAFC] z-10 border-b border-gray-100 shadow-[0_1px_0_rgba(0,0,0,0.02)]">
+                        <thead className="sticky top-0 bg-[#F8FAFC] z-10 border-b border-gray-100">
                             <tr>
-                                <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider w-24">Mã định danh</th>
-                                {(activeTab === "departments" || activeTab === "salary-grades") && (
-                                    <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider w-32">Mã Code</th>
-                                )}
-                                <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider">Tên Danh Mục Hệ Thống</th>
-                                {activeTab === "salary-grades" && (
-                                    <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider w-40">Tháng giữ bậc</th>
-                                )}
-                                <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider text-center w-32">Trạng Thái</th>
-                                <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider text-center w-40">Thao Tác</th>
+                                <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider w-24">ID</th>
+                                {(activeTab === "departments" || activeTab === "salary-grades") && <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider">Mã Code</th>}
+                                
+                                <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider">Tên Danh Mục</th>
+                                
+                                {(activeTab === "job-titles" || activeTab === "salary-steps") && <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider">Thuộc Ngạch Lương</th>}
+                                {activeTab === "salary-grades" && <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider">Tháng giữ bậc</th>}
+                                {activeTab === "salary-steps" && <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider">Hệ số</th>}
+                                
+                                <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider text-center">Trạng Thái</th>
+                                <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider text-center">Thao Tác</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {loading ? (
-                                <tr><td colSpan={6} className="text-center py-12 text-xs text-gray-400 font-medium">Đang tải dữ liệu y tế...</td></tr>
-                            ) : data.length === 0 ? (
-                                <tr><td colSpan={6} className="text-center py-12 text-xs text-gray-400">Hệ thống trống. Nhấp thêm mới để tạo dữ liệu.</td></tr>
-                            ) : (
-                                data.map((row, index) => {
-                                    const idKey = getIdField();
-                                    const nameKey = getNameField();
-                                    return (
-                                        <tr key={row[idKey]} className={`transition-colors hover:bg-blue-50/30 ${index % 2 === 0 ? "bg-white" : "bg-[#F0F7FF]"}`}>
-                                            <td className="px-6 py-3.5 text-xs font-semibold text-gray-400 tracking-wider">#{row[idKey]}</td>
-                                            {activeTab === "departments" && <td className="px-6 py-3.5 text-xs font-bold text-blue-600">{row.DepartmentCode}</td>}
-                                            {activeTab === "salary-grades" && <td className="px-6 py-3.5 text-xs font-bold text-blue-600">{row.GradeCode}</td>}
-                                            <td className="px-6 py-3.5 text-xs font-bold text-[#1E293B]">{row[nameKey]}</td>
-                                            {activeTab === "salary-grades" && <td className="px-6 py-3.5 text-xs text-gray-600 font-medium">{row.HoldingMonths} tháng</td>}
-                                            <td className="px-6 py-3.5 text-xs text-center">
-                                                {row.IsActive === false ? (
-                                                    <span className="bg-red-50 text-red-600 border border-red-200/50 px-2.5 py-1 rounded-lg font-bold text-[10px]">Tạm Ngưng</span>
-                                                ) : (
-                                                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/50 px-2.5 py-1 rounded-lg font-bold text-[10px]">Hoạt Động</span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-3.5 text-xs text-center">
-                                                <button 
-                                                    onClick={() => handleOpenEdit(row)}
-                                                    className="text-blue-600 font-bold hover:text-blue-800 transition-colors mr-4"
-                                                >
-                                                    Sửa
-                                                </button>
-                                                <button 
-                                                    onClick={() => handleDelete(row[idKey])}
-                                                    className="text-gray-400 font-medium hover:text-red-600 transition-colors"
-                                                >
-                                                    Xóa
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            )}
+                            {data.map((row, index) => {
+                                const idKey = getIdField();
+                                const nameKey = getNameField();
+                                // Tìm tên Ngạch lương dựa trên GradeID
+                                const gradeName = gradesList.find(g => g.GradeID === row.GradeID)?.GradeName || "---";
+
+                                return (
+                                    <tr key={row[idKey]} className="hover:bg-blue-50/30">
+                                        <td className="px-6 py-3.5 text-xs text-gray-400">#{row[idKey]}</td>
+                                        
+                                        {(activeTab === "departments" || activeTab === "salary-grades") && 
+                                            <td className="px-6 py-3.5 text-xs font-bold text-blue-600">{row.DepartmentCode || row.GradeCode}</td>
+                                        }
+
+                                        <td className="px-6 py-3.5 text-xs font-bold text-[#1E293B]">{row[nameKey]}</td>
+                                        
+                                        {(activeTab === "job-titles" || activeTab === "salary-steps") && 
+                                            <td className="px-6 py-3.5 text-xs font-medium text-emerald-600">{gradeName}</td>
+                                        }
+                                        {activeTab === "salary-grades" && <td className="px-6 py-3.5 text-xs">{row.HoldingMonths} tháng</td>}
+                                        {activeTab === "salary-steps" && <td className="px-6 py-3.5 text-xs font-bold text-red-500">{row.Coefficient}</td>}
+
+                                        <td className="px-6 py-3.5 text-xs text-center">
+                                            {row.IsActive === false ? (
+                                                <span className="bg-red-50 text-red-600 px-2.5 py-1 rounded-lg text-[10px]">Tạm Ngưng</span>
+                                            ) : (
+                                                <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg text-[10px]">Hoạt Động</span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-3.5 text-xs text-center">
+                                            <button onClick={() => handleOpenEdit(row)} className="text-blue-600 hover:text-blue-800 mr-4">Sửa</button>
+                                            <button onClick={() => handleDelete(row[idKey])} className="text-gray-400 hover:text-red-600">Xóa</button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            {/* POPUP MODAL ĐỔ BÓNG 3D PHÒNG CÁCH MEDICAL TRUST BLUE */}
+            {/* POPUP MODAL THÔNG MINH */}
             {isModalOpen && (
-                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_20px_50px_rgba(15,23,42,0.15)] w-[480px] overflow-hidden">
-                        <div className="p-6 bg-[#F8FAFC] border-b border-gray-100 flex justify-between items-center">
-                            <h3 className="text-base font-bold text-[#1E293B]">
-                                {editingItem ? "✏️ Hiệu chỉnh danh mục" : "✨ Thêm mới danh mục"}
-                            </h3>
-                            <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 font-bold text-sm">✕</button>
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50">
+                    <div className="bg-white rounded-2xl w-[480px] shadow-2xl overflow-hidden">
+                        <div className="p-6 bg-[#F8FAFC] border-b border-gray-100 flex justify-between">
+                            <h3 className="font-bold text-[#1E293B]">{editingItem ? "✏️ Hiệu chỉnh" : "✨ Thêm mới"}</h3>
+                            <button onClick={() => setIsModalOpen(false)} className="text-gray-400 font-bold">✕</button>
                         </div>
 
                         <form onSubmit={handleSubmit} className="p-6 space-y-4">
                             {(activeTab === "departments" || activeTab === "salary-grades") && (
                                 <div>
-                                    <label className="block text-xs font-bold text-[#475569] uppercase tracking-wide mb-1.5">Mã viết tắt / Code</label>
-                                    <input 
-                                        type="text"
-                                        value={formData.code}
-                                        onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                                        placeholder="Ví dụ: KLS, V.08.01.02..."
-                                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 shadow-sm"
-                                        required
-                                    />
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">MÃ CODE</label>
+                                    <input type="text" value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value })} className="w-full px-3 py-2 border rounded-xl" required />
                                 </div>
                             )}
 
                             <div>
-                                <label className="block text-xs font-bold text-[#475569] uppercase tracking-wide mb-1.5">Tên danh mục y tế</label>
-                                <input 
-                                    type="text"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    placeholder="Nhập tên chính thức..."
-                                    className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 shadow-sm"
-                                    required
-                                />
+                                <label className="block text-xs font-bold text-gray-500 mb-1">TÊN DANH MỤC</label>
+                                <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-3 py-2 border rounded-xl" required />
                             </div>
+
+                            {/* Dropdown Ngạch Lương cho Chức Danh và Bậc Lương */}
+                            {(activeTab === "job-titles" || activeTab === "salary-steps") && (
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">MAP VỚI NGẠCH LƯƠNG</label>
+                                    <select value={formData.gradeId} onChange={(e) => setFormData({ ...formData, gradeId: e.target.value })} className="w-full px-3 py-2 border rounded-xl bg-white" required>
+                                        <option value="">-- Chọn ngạch lương --</option>
+                                        {gradesList.map(g => (
+                                            <option key={g.GradeID} value={g.GradeID}>{g.GradeCode} - {g.GradeName}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
 
                             {activeTab === "salary-grades" && (
                                 <div>
-                                    <label className="block text-xs font-bold text-[#475569] uppercase tracking-wide mb-1.5">Thời gian giữ bậc định kỳ (Tháng)</label>
-                                    <input 
-                                        type="number"
-                                        value={formData.months}
-                                        onChange={(e) => setFormData({ ...formData, months: Number(e.target.value) })}
-                                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 shadow-sm"
-                                        required
-                                    />
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">THÁNG GIỮ BẬC (ĐỊNH KỲ)</label>
+                                    <input type="number" value={formData.months} onChange={(e) => setFormData({ ...formData, months: Number(e.target.value) })} className="w-full px-3 py-2 border rounded-xl" required />
                                 </div>
                             )}
 
-                            {activeTab === "job-titles" && (
-                                <div>
-                                    <label className="block text-xs font-bold text-[#475569] uppercase tracking-wide mb-1.5">Mô tả chức danh nghề nghiệp</label>
-                                    <textarea 
-                                        value={formData.description}
-                                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 shadow-sm h-20 resize-none"
-                                    />
+                            {/* Trường riêng cho Bậc lương */}
+                            {activeTab === "salary-steps" && (
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">HỆ SỐ LƯƠNG</label>
+                                        <input type="number" step="0.01" value={formData.coefficient} onChange={(e) => setFormData({ ...formData, coefficient: Number(e.target.value) })} className="w-full px-3 py-2 border rounded-xl" required />
+                                    </div>
+                                    <div className="flex items-center mt-6">
+                                        <input type="checkbox" checked={formData.isDefault} onChange={(e) => setFormData({ ...formData, isDefault: e.target.checked })} className="w-4 h-4 text-blue-600 rounded" />
+                                        <span className="ml-2 text-xs font-bold text-gray-600">Là bậc khởi điểm?</span>
+                                    </div>
                                 </div>
                             )}
 
-                            <div className="flex items-center justify-between pt-2 border-t border-gray-50">
-                                <div>
-                                    <h4 className="text-xs font-bold text-[#1E293B]">Trạng thái kích hoạt</h4>
-                                    <p className="text-[11px] text-gray-400">Nếu ngưng, danh mục sẽ ẩn khỏi Dropdown form Nhân sự.</p>
-                                </div>
-                                <input 
-                                    type="checkbox"
-                                    checked={formData.isActive}
-                                    onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
+                            <div className="flex items-center pt-2">
+                                <input type="checkbox" checked={formData.isActive} onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })} className="w-4 h-4 text-blue-600 rounded" />
+                                <span className="ml-2 text-xs font-bold text-gray-600">Kích hoạt sử dụng</span>
                             </div>
 
-                            <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-                                <button 
-                                    type="button"
-                                    onClick={() => setIsModalOpen(false)}
-                                    className="px-4 py-2 text-xs font-semibold text-gray-500 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
-                                >
-                                    Hủy bỏ
-                                </button>
-                                <button 
-                                    type="submit"
-                                    className="px-5 py-2 text-xs font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow-md shadow-blue-600/10 transition-colors"
-                                >
-                                    Lưu Dữ Liệu
-                                </button>
+                            <div className="flex justify-end gap-3 pt-4">
+                                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-gray-100 rounded-xl">Hủy</button>
+                                <button type="submit" className="px-5 py-2 text-white bg-blue-600 rounded-xl hover:bg-blue-700">Lưu Dữ Liệu</button>
                             </div>
                         </form>
                     </div>
