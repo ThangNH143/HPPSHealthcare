@@ -4,7 +4,7 @@ import MasterDataSettings from "./pages/MasterDataSettings";
 
 function App() {
     return (
-        <BrowserRouter>
+        <BrowserRouter basename="/QLNhanSuTienLuong">
             <div className="min-h-screen bg-gray-50">
                 <Routes>
                     <Route path="/" element={<EmployeeList />} />
