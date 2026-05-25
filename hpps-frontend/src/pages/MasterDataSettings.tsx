@@ -20,10 +20,10 @@ export default function MasterDataSettings() {
 
     // BƯỚC SỬA LỖI 1: Đồng bộ ID tab khớp 100% với tên Route Backend (Thêm gạch ngang)
     const menuItems = [
-        { id: "departments", name: "🏢 Khoa / Phòng Ban" },
-        { id: "positions", name: "👔 Chức Vụ Quản Lý" },
-        { id: "job-titles", name: "⚕️ Chức Danh Nghề Nghiệp" },
-        { id: "salary-grades", name: "💰 Ngạch Lương Hệ Thống" },
+        { id: "departments", name: "🏢 DM Khoa / Phòng Ban" },
+        { id: "positions", name: "👔 DM Chức Vụ" },
+        { id: "job-titles", name: "⚕️ DM Chức Danh Nghề Nghiệp" },
+        { id: "salary-grades", name: "💰 DM Ngạch Lương Hệ Thống" },
     ];
 
     const loadData = async () => {
