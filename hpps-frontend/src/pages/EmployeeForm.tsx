@@ -34,6 +34,8 @@ export default function EmployeeForm() {
     const [salaryGrades, setSalaryGrades] = useState<any[]>([]);
     const [salarySteps, setSalarySteps] = useState<any[]>([]);
     const [filteredSteps, setFilteredSteps] = useState<any[]>([]); // Các bậc lương sau khi lọc theo Ngạch
+    // Thêm State để làm hiệu ứng loading khi đang lưu
+    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         const parseData = (res: any) => res.data?.data || (Array.isArray(res.data) ? res.data : []);
@@ -90,6 +92,43 @@ export default function EmployeeForm() {
             StepID: stepId,
             Coefficient: selectedStep ? selectedStep.Coefficient : 0
         });
+    };
+
+    // HÀM XỬ LÝ LƯU DỮ LIỆU CHÍNH THỨC
+    const handleSave = async () => {
+        // 1. Validate sơ bộ (Bảo mật Zero-Trust từ Frontend)
+        if (!formData.EmployeeCode.trim()) return alert("Vui lòng nhập Mã nhân viên!");
+        if (!formData.FullName.trim()) return alert("Vui lòng nhập Họ và Tên!");
+        if (!formData.DepartmentID) return alert("Vui lòng chọn Khoa / Phòng ban công tác!");
+
+        setIsSaving(true);
+        try {
+            // 2. Ép kiểu dữ liệu (Convert ID từ chuỗi String sang Number để khớp với SQL Server)
+            const payload = {
+                ...formData,
+                ProvinceID: formData.ProvinceID ? Number(formData.ProvinceID) : null,
+                WardID: formData.WardID ? Number(formData.WardID) : null,
+                DepartmentID: formData.DepartmentID ? Number(formData.DepartmentID) : null,
+                PositionID: formData.PositionID ? Number(formData.PositionID) : null,
+                JobTitleID: formData.JobTitleID ? Number(formData.JobTitleID) : null,
+                GradeID: formData.GradeID ? Number(formData.GradeID) : null,
+                StepID: formData.StepID ? Number(formData.StepID) : null,
+            };
+
+            // 3. Gọi API POST gửi dữ liệu xuống Backend
+            const res = await api.post("/employees", payload);
+            
+            if (res.data) {
+                alert("🎉 Thêm mới hồ sơ nhân sự thành công!");
+                navigate("/"); // Tự động quay về màn hình danh sách
+            }
+        } catch (error: any) {
+            console.error("Lỗi khi lưu nhân sự:", error);
+            // Hiển thị thông báo lỗi từ Backend (nếu có)
+            alert("Lỗi lưu dữ liệu: " + (error.response?.data?.message || "Không thể kết nối API"));
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const tabs = [
@@ -391,7 +430,17 @@ export default function EmployeeForm() {
             <div className="bg-white px-8 py-4 border-t border-gray-200 shadow-[0_-10px_30px_rgba(0,0,0,0.03)] flex justify-end gap-4 z-20">
                 <button onClick={() => navigate("/")} className="px-6 py-2.5 rounded-xl text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">Hủy bỏ</button>
                 <button className="px-6 py-2.5 rounded-xl text-sm font-semibold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors">💾 Lưu Nháp</button>
-                <button className="px-8 py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all">🚀 Lưu Chính Thức</button>
+                <button 
+                    onClick={handleSave} 
+                    disabled={isSaving}
+                    className={`px-8 py-2.5 rounded-xl text-sm font-bold text-white shadow-lg transition-all ${
+                        isSaving 
+                            ? "bg-gray-400 cursor-not-allowed" 
+                            : "bg-blue-600 hover:bg-blue-700 shadow-blue-600/20"
+                    }`}
+                >
+                    {isSaving ? "⏳ Đang lưu hồ sơ..." : "🚀 Lưu Chính Thức"}
+                </button>
             </div>
         </div>
     );

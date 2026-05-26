@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getEmployees } from "../services/employeeService";
+import logoBenhVien from "../assets/logo-benhvien.jpg";
 
 export default function EmployeeList() {
     const [employees, setEmployees] = useState<any[]>([]);
@@ -28,7 +29,7 @@ export default function EmployeeList() {
                 <div className="p-5 border-b border-slate-800 flex items-center gap-3">
                     {/* Logo Bệnh Viện */}
                     <img 
-                        src="/logo-benhvien.jpg" 
+                        src={logoBenhVien} 
                         alt="Logo Bệnh Viện" 
                         className="w-10 h-10 object-cover rounded-full border border-slate-700/50 shadow-md shadow-blue-500/5"
                     />
@@ -43,8 +44,8 @@ export default function EmployeeList() {
                     <a href="#" className="flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-600/10 transition-all">
                         <span>👤</span> Hồ sơ nhân sự
                     </a>
-                    <a href="#" className="flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl hover:bg-slate-800/60 hover:text-white transition-all text-gray-400">
-                        <span>🏢</span> Phòng ban / Khoa
+                    <a href="/QLNhanSuTienLuong/settings" className="flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl hover:bg-slate-800/60 hover:text-white transition-all text-gray-400">
+                        <span>🏢</span> Danh mục
                     </a>
                     <a href="#" className="flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl hover:bg-slate-800/60 hover:text-white transition-all text-gray-400">
                         <span>💳</span> Ngạch & Bậc lương
