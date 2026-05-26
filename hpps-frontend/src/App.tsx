@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import EmployeeList from "./pages/EmployeeList";
 import MasterDataSettings from "./pages/MasterDataSettings";
+import EmployeeForm from "./pages/EmployeeForm";
 
 function App() {
     return (
@@ -9,6 +10,7 @@ function App() {
                 <Routes>
                     <Route path="/" element={<EmployeeList />} />
                     <Route path="/settings" element={<MasterDataSettings />} />
+                    <Route path="/employees/new" element={<EmployeeForm />} />
                 </Routes>
             </div>
         </BrowserRouter>

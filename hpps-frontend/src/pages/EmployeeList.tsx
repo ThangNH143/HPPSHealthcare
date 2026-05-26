@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { getEmployees } from "../services/employeeService";
 
 export default function EmployeeList() {
     const [employees, setEmployees] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
 
     useEffect(() => {
         const fetchData = async () => {
@@ -99,7 +101,10 @@ export default function EmployeeList() {
                                 <span className="absolute left-3 top-2.5 text-gray-400 text-xs">🔍</span>
                             </div>
                             
-                            <button className="bg-blue-600 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-md shadow-blue-600/10 hover:bg-blue-700 transition-all flex items-center gap-1.5">
+                            <button 
+                                onClick={() => navigate('/employees/new')}
+                                className="bg-blue-600 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-md shadow-blue-600/10 hover:bg-blue-700 transition-all flex items-center gap-1.5"
+                            >
                                 <span className="text-sm">+</span> Thêm Nhân Viên Mới
                             </button>
                         </div>
