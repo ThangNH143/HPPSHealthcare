@@ -7,6 +7,10 @@ import { Position } from "../entities/Position";
 import { SalaryGrade } from "../entities/SalaryGrade";
 import { SalaryStep } from "../entities/SalaryStep";
 import { Employee } from "../entities/Employee";
+import { EmpQualification } from "../entities/EmpQualification";
+import { EmpDepartment } from "../entities/EmpDepartment";
+import { EmpAllowance } from "../entities/EmpAllowance";
+import { EmpPosition } from "../entities/EmpPosition";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -18,7 +22,7 @@ export const AppDataSource = new DataSource({
     username: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    entities: [Province, Ward, Department, JobTitle, Position, SalaryGrade, SalaryStep, Employee] , // Đăng ký các Entity tại đây
+    entities: [Province, Ward, Department, JobTitle, Position, SalaryGrade, SalaryStep, Employee,EmpQualification, EmpDepartment, EmpAllowance,EmpPosition] ,
     synchronize: false, // Tắt đồng bộ tự động để không làm hỏng Database đã có
     logging: true,
     options: {
