@@ -90,6 +90,9 @@ export class Employee {
     @Column({ name: "ProbationStatus", type: "nvarchar", length: 100, nullable: true })
     ProbationStatus!: string;
 
+    @Column({ name: "ContractURL", type: "nvarchar", length: 500, nullable: true })
+    ContractURL!: string;
+
     // --- THÔNG TIN ĐẢNG ĐOÀN ---
     @Column({ name: "PartyJoinDatePreliminary", type: "date", nullable: true })
     PartyJoinDatePreliminary!: Date;

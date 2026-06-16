@@ -88,6 +88,7 @@ export class EmployeeController {
             newEmployee.EmployeeType = data.EmployeeType || (null as any);
             newEmployee.RecruitmentSource = data.RecruitmentSource || (null as any);
             newEmployee.ProbationStatus = data.ProbationStatus || (null as any);
+            newEmployee.ContractURL = data.ContractURL || (null as any);
 
             // --- 4. Trạng thái Công tác hiện tại ---
             newEmployee.DepartmentID = data.DepartmentID ? Number(data.DepartmentID) : (null as any);
@@ -126,6 +127,7 @@ export class EmployeeController {
                     qual.QualType = qualData.QualType || "Chuyên môn";
                     qual.IssuePlace = qualData.IssuePlace || (null as any);
                     qual.IssueDateText = qualData.IssueDateText || (null as any);
+                    qual.AttachmentURL = qualData.AttachmentURL || (null as any);
 
                     if (qual.IssueDateText) {
                         const text = qual.IssueDateText.trim();
@@ -149,6 +151,7 @@ export class EmployeeController {
                 empDept.EmployeeID = savedEmployee.EmployeeID;
                 empDept.DepartmentID = Number(data.DepartmentID);
                 empDept.ValidFrom = data.ValidFrom_Dept ? new Date(data.ValidFrom_Dept) : new Date();
+                empDept.DecisionURL = data.DecisionURL_Dept || (null as any);
                 await queryRunner.manager.save(empDept);
             }
 
@@ -158,6 +161,7 @@ export class EmployeeController {
                 empPos.EmployeeID = savedEmployee.EmployeeID;
                 empPos.PositionID = Number(data.PositionID);
                 empPos.ValidFrom = data.ValidFrom_Pos ? new Date(data.ValidFrom_Pos) : new Date();
+                empPos.DecisionURL = data.DecisionURL_Pos || (null as any);
                 await queryRunner.manager.save(empPos);
             }
 

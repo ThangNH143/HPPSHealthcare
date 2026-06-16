@@ -5,6 +5,7 @@ import api from "../services/api";
 export default function EmployeeForm() {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState("hanh-chinh");
+    const [isUploading, setIsUploading] = useState(false); // Trạng thái báo đang tải file
 
     // ==========================================
     // 1. STATE QUẢN LÝ DỮ LIỆU NHẬP LIỆU (ALL TABS)
@@ -17,10 +18,11 @@ export default function EmployeeForm() {
         // TAB 2
         Qualification: "Đại học", DepartmentID: "", PositionID: "", 
         ValidFrom_Dept: "", ValidFrom_Pos: "", 
-        EmployeeType: "Biên chế", RecruitmentSource: "", ProbationStatus: "Chính thức",
+        DecisionURL_Dept: "", DecisionURL_Pos: "", // MỚI: State lưu URL quyết định
+        EmployeeType: "Biên chế", RecruitmentSource: "", ProbationStatus: "Chính thức", ContractURL: "",
         
-        // TAB 3: CHỨNG CHỈ & ĐẢNG (ĐÃ BỔ SUNG LẠI CCHN)
-        CCHN_Number: "", CCHN_IssueDate: "", CCHN_ExpDate: "", // <-- CHÍNH LÀ 3 BIẾN NÀY
+        // TAB 3: CHỨNG CHỈ & ĐẢNG
+        CCHN_Number: "", CCHN_IssueDate: "", CCHN_ExpDate: "", 
         PartyJoinDatePreliminary: "", PartyJoinDateOfficial: "", PartyCardNumber: "", PartyCell: "", Note: "",
         
         // TAB 4: TIỀN LƯƠNG
@@ -28,14 +30,12 @@ export default function EmployeeForm() {
     });
 
     const [qualifications, setQualifications] = useState([
-        { QualType: "Chuyên môn", QualName: "", IssuePlace: "", IssueDateText: "" },
-        { QualType: "Ngoại ngữ", QualName: "", IssuePlace: "", IssueDateText: "" },
-        { QualType: "Tin học", QualName: "", IssuePlace: "", IssueDateText: "" }
+        { QualType: "Chuyên môn", QualName: "", IssuePlace: "", IssueDateText: "", AttachmentURL: "" }, // Bổ sung AttachmentURL
+        { QualType: "Ngoại ngữ", QualName: "", IssuePlace: "", IssueDateText: "", AttachmentURL: "" },
+        { QualType: "Tin học", QualName: "", IssuePlace: "", IssueDateText: "", AttachmentURL: "" }
     ]);
 
-    // ==========================================
-    // 2. STATE DANH MỤC (MASTER DATA)
-    // ==========================================
+    // [CÁC KHAI BÁO STATE DANH MỤC VÀ USE-EFFECT GIỮ NGUYÊN...]
     const [provinces, setProvinces] = useState<any[]>([]);
     const [wards, setWards] = useState<any[]>([]);
     const [departments, setDepartments] = useState<any[]>([]);
@@ -44,12 +44,10 @@ export default function EmployeeForm() {
     const [salaryGrades, setSalaryGrades] = useState<any[]>([]);
     const [salarySteps, setSalarySteps] = useState<any[]>([]);
     const [filteredSteps, setFilteredSteps] = useState<any[]>([]);
-    
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         const parseData = (res: any) => res.data?.data || (Array.isArray(res.data) ? res.data : []);
-
         api.get("/provinces").then(res => setProvinces(parseData(res))).catch(console.error);
         api.get("/departments").then(res => setDepartments(parseData(res))).catch(console.error);
         api.get("/positions").then(res => setPositions(parseData(res))).catch(console.error);
@@ -65,7 +63,7 @@ export default function EmployeeForm() {
             try {
                 const res = await api.get(`/provinces/${provinceId}/wards`);
                 setWards(res.data?.data || (Array.isArray(res.data) ? res.data : []));
-            } catch (error) { console.error("Lỗi lấy danh sách Phường/Xã:", error); }
+            } catch (error) { console.error("Lỗi lấy Xã:", error); }
         }
     };
 
@@ -93,6 +91,35 @@ export default function EmployeeForm() {
         setQualifications(newQuals);
     };
 
+    // ==========================================
+    // MODULE: HÀM UPLOAD FILE LÊN SERVER
+    // ==========================================
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+        
+        const file = e.target.files[0];
+        const uploadData = new FormData();
+        uploadData.append("file", file);
+        
+        try {
+            setIsUploading(true);
+            const res = await api.post("/upload", uploadData, {
+                headers: { "Content-Type": "multipart/form-data" }
+            });
+            if (res.data.success) {
+                callback(res.data.url); // Trả URL về cho Form
+            }
+        } catch (error) {
+            console.error("Lỗi upload", error);
+            alert("Lỗi tải file lên Server! Vui lòng thử lại.");
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    // ==========================================
+    // HÀM XỬ LÝ LƯU DỮ LIỆU
+    // ==========================================
     const handleSave = async () => {
         if (!formData.EmployeeCode.trim()) return alert("Vui lòng nhập Mã nhân viên!");
         if (!formData.FullName.trim()) return alert("Vui lòng nhập Họ và Tên!");
@@ -112,6 +139,7 @@ export default function EmployeeForm() {
                 JobTitleID: formData.JobTitleID ? Number(formData.JobTitleID) : null,
                 GradeID: formData.GradeID ? Number(formData.GradeID) : null,
                 StepID: formData.StepID ? Number(formData.StepID) : null,
+                ContractURL: formData.ContractURL,
                 qualifications: validQualifications 
             };
 
@@ -155,6 +183,13 @@ export default function EmployeeForm() {
                     ))}
                 </nav>
             </div>
+
+            {/* HIỂN THỊ CẢNH BÁO ĐANG TẢI FILE */}
+            {isUploading && (
+                <div className="bg-blue-500 text-white text-center text-xs py-1 font-bold animate-pulse">
+                    ⏳ Đang tải file lên máy chủ... Vui lòng chờ!
+                </div>
+            )}
 
             <div className="flex-1 overflow-y-auto p-8 relative">
                 <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-8 min-h-full">
@@ -223,32 +258,36 @@ export default function EmployeeForm() {
                     {activeTab === "cong-tac" && (
                         <div className="animate-fade-in space-y-8">
                             
-                            {/* Khối I: Bằng cấp */}
+                            {/* Khối I: Bằng cấp - CÓ UPLOAD */}
                             <div>
                                 <h3 className="text-lg font-bold text-[#1E293B] border-b pb-2 mb-4">I. Bằng cấp & Chứng chỉ</h3>
                                 <div className="space-y-4">
                                     {qualifications.map((qual, index) => (
-                                        <div key={index} className="grid grid-cols-4 gap-4 p-5 bg-gray-50 rounded-xl border border-gray-200">
+                                        <div key={index} className="grid grid-cols-5 gap-4 p-4 bg-gray-50 rounded-xl border border-gray-200 items-end">
                                             <div>
-                                                <label className="block text-[10px] font-bold text-gray-500 mb-1">LOẠI BẰNG CẤP</label>
-                                                <select value={qual.QualType} onChange={e => handleQualChange(index, "QualType", e.target.value)} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none">
+                                                <label className="block text-[10px] font-bold text-gray-500 mb-1">LOẠI BẰNG</label>
+                                                <select value={qual.QualType} onChange={e => handleQualChange(index, "QualType", e.target.value)} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs outline-none">
                                                     <option value="Chuyên môn">Chuyên môn</option>
                                                     <option value="Ngoại ngữ">Ngoại ngữ</option>
                                                     <option value="Tin học">Tin học</option>
-                                                    <option value="Khác">Khác</option>
                                                 </select>
                                             </div>
                                             <div>
-                                                <label className="block text-[10px] font-bold text-gray-500 mb-1">TÊN BẰNG / CHỨNG CHỈ</label>
-                                                <input type="text" placeholder="VD: Bác sĩ Đa khoa..." value={qual.QualName} onChange={e => handleQualChange(index, "QualName", e.target.value)} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none" />
+                                                <label className="block text-[10px] font-bold text-gray-500 mb-1">TÊN BẰNG</label>
+                                                <input type="text" placeholder="VD: Bác sĩ..." value={qual.QualName} onChange={e => handleQualChange(index, "QualName", e.target.value)} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs outline-none" />
                                             </div>
                                             <div>
                                                 <label className="block text-[10px] font-bold text-gray-500 mb-1">NƠI CẤP</label>
-                                                <input type="text" placeholder="VD: ĐH Y Dược TPHCM" value={qual.IssuePlace} onChange={e => handleQualChange(index, "IssuePlace", e.target.value)} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none" />
+                                                <input type="text" value={qual.IssuePlace} onChange={e => handleQualChange(index, "IssuePlace", e.target.value)} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs outline-none" />
                                             </div>
                                             <div>
-                                                <label className="block text-[10px] font-bold text-gray-500 mb-1">NGÀY CẤP (TEXT TỰ DO)</label>
-                                                <input type="text" placeholder="VD: 10/2020 hoặc 2015" value={qual.IssueDateText} onChange={e => handleQualChange(index, "IssueDateText", e.target.value)} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none" />
+                                                <label className="block text-[10px] font-bold text-gray-500 mb-1">NGÀY CẤP</label>
+                                                <input type="text" placeholder="VD: 10/2020" value={qual.IssueDateText} onChange={e => handleQualChange(index, "IssueDateText", e.target.value)} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs outline-none" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-gray-500 mb-1">BẢN SCAN (PDF/JPG)</label>
+                                                <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileUpload(e, (url) => handleQualChange(index, "AttachmentURL", url))} className="text-[10px] w-full file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
+                                                {qual.AttachmentURL && <span className="text-[10px] text-green-600 font-bold block mt-1">✅ Đã đính kèm</span>}
                                             </div>
                                         </div>
                                     ))}
@@ -258,7 +297,7 @@ export default function EmployeeForm() {
                             {/* Khối II: Phân công & Tính chất nhân sự */}
                             <div>
                                 <h3 className="text-lg font-bold text-[#1E293B] border-b pb-2 mb-4">II. Phân công công tác & Tính chất nhân sự</h3>
-                                <div className="grid grid-cols-3 gap-6 mb-6">
+                                <div className="grid grid-cols-4 gap-6 mb-6">
                                     <div>
                                         <label className="block text-xs font-bold text-gray-500 mb-2">LOẠI ĐỐI TƯỢNG NHÂN SỰ</label>
                                         <select value={formData.EmployeeType} onChange={e => setFormData({...formData, EmployeeType: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none">
@@ -278,10 +317,22 @@ export default function EmployeeForm() {
                                         <label className="block text-xs font-bold text-gray-500 mb-2">NGUỒN / CƠ QUAN TUYỂN DỤNG</label>
                                         <input type="text" placeholder="VD: Sở Y Tế cấp..." value={formData.RecruitmentSource} onChange={e => setFormData({...formData, RecruitmentSource: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none" />
                                     </div>
+                                    
+                                    {/* MỚI: NÚT UPLOAD BẢN SCAN HỢP ĐỒNG */}
+                                    <div className="bg-orange-50/50 p-3 rounded-xl border border-orange-100 flex flex-col justify-center">
+                                        <label className="block text-[10px] font-bold text-orange-800 mb-1">BẢN SCAN HỢP ĐỒNG / QUYẾT ĐỊNH</label>
+                                        <input 
+                                            type="file" 
+                                            accept=".pdf,.jpg,.jpeg,.png" 
+                                            onChange={(e) => handleFileUpload(e, (url) => setFormData({...formData, ContractURL: url}))} 
+                                            className="w-full text-[10px] file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-orange-100 file:text-orange-700 hover:file:bg-orange-200 cursor-pointer" 
+                                        />
+                                        {formData.ContractURL && <span className="text-[10px] text-green-600 font-bold block mt-1">✅ Đã lưu file Hợp đồng</span>}
+                                    </div>
                                 </div>
 
-                                {/* Tách biệt 2 khu vực nhập ngày cho Khoa và Chức vụ */}
                                 <div className="grid grid-cols-2 gap-6">
+                                    {/* CÔNG TÁC KHOA (CÓ UPLOAD) */}
                                     <div className="p-5 bg-blue-50/40 rounded-xl border border-blue-100 space-y-4">
                                         <h4 className="text-sm font-bold text-blue-900">🏢 Công tác Khoa / Phòng</h4>
                                         <div>
@@ -291,24 +342,33 @@ export default function EmployeeForm() {
                                                 {departments.map(d => <option key={d.DepartmentID || d.id} value={d.DepartmentID || d.id}>{d.DepartmentName || d.name}</option>)}
                                             </select>
                                         </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-500 mb-2">NGÀY BẮT ĐẦU VỀ KHOA</label>
-                                            <input type="date" value={formData.ValidFrom_Dept} onChange={e => setFormData({...formData, ValidFrom_Dept: e.target.value})} className="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none" />
+                                        <div className="flex gap-4">
+                                            <div className="flex-1"><label className="block text-xs font-bold text-gray-500 mb-2">NGÀY BẮT ĐẦU</label><input type="date" value={formData.ValidFrom_Dept} onChange={e => setFormData({...formData, ValidFrom_Dept: e.target.value})} className="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none" /></div>
+                                            <div className="flex-1">
+                                                <label className="block text-xs font-bold text-gray-500 mb-2">QĐ THUYÊN CHUYỂN</label>
+                                                <input type="file" accept=".pdf,.jpg" onChange={(e) => handleFileUpload(e, (url) => setFormData({...formData, DecisionURL_Dept: url}))} className="w-full text-[10px] file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:bg-blue-100 file:text-blue-700 cursor-pointer" />
+                                                {formData.DecisionURL_Dept && <span className="text-[10px] text-green-600 font-bold block mt-1">✅ Đã tải file</span>}
+                                            </div>
                                         </div>
                                     </div>
 
+                                    {/* BỔ NHIỆM CHỨC VỤ (CÓ UPLOAD) */}
                                     <div className="p-5 bg-purple-50/40 rounded-xl border border-purple-100 space-y-4">
                                         <h4 className="text-sm font-bold text-purple-900">👑 Bổ nhiệm Chức vụ Quản lý</h4>
                                         <div>
                                             <label className="block text-xs font-bold text-gray-500 mb-2">CHỨC VỤ QUẢN LÝ</label>
                                             <select value={formData.PositionID} onChange={e => setFormData({...formData, PositionID: e.target.value})} className="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none">
-                                                <option value="">-- Không có chức vụ (Nhân viên) --</option>
+                                                <option value="">-- Không có chức vụ --</option>
                                                 {positions.map(p => <option key={p.PositionID || p.id} value={p.PositionID || p.id}>{p.PositionName || p.name}</option>)}
                                             </select>
                                         </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-500 mb-2">NGÀY BỔ NHIỆM CHỨC VỤ</label>
-                                            <input type="date" value={formData.ValidFrom_Pos} onChange={e => setFormData({...formData, ValidFrom_Pos: e.target.value})} disabled={!formData.PositionID} className="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none disabled:opacity-50" />
+                                        <div className="flex gap-4">
+                                            <div className="flex-1"><label className="block text-xs font-bold text-gray-500 mb-2">NGÀY BỔ NHIỆM</label><input type="date" value={formData.ValidFrom_Pos} onChange={e => setFormData({...formData, ValidFrom_Pos: e.target.value})} disabled={!formData.PositionID} className="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none disabled:opacity-50" /></div>
+                                            <div className="flex-1">
+                                                <label className="block text-xs font-bold text-gray-500 mb-2">QĐ BỔ NHIỆM</label>
+                                                <input type="file" accept=".pdf,.jpg" disabled={!formData.PositionID} onChange={(e) => handleFileUpload(e, (url) => setFormData({...formData, DecisionURL_Pos: url}))} className="w-full text-[10px] file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:bg-purple-100 file:text-purple-700 cursor-pointer disabled:opacity-50" />
+                                                {formData.DecisionURL_Pos && <span className="text-[10px] text-green-600 font-bold block mt-1">✅ Đã tải file</span>}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -319,27 +379,14 @@ export default function EmployeeForm() {
                     {/* TAB 3: CHỨNG CHỈ & ĐẢNG */}
                     {activeTab === "chung-chi" && (
                         <div className="animate-fade-in space-y-8">
-                            
-                            {/* I. CHỨNG CHỈ HÀNH NGHỀ (CCHN) */}
                             <div>
                                 <h3 className="text-lg font-bold text-[#1E293B] border-b pb-2 mb-4">I. Chứng chỉ hành nghề (CCHN)</h3>
                                 <div className="grid grid-cols-3 gap-6 mb-6">
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 mb-2">SỐ CHỨNG CHỈ HÀNH NGHỀ</label>
-                                        <input type="text" placeholder="VD: 001234/BYT-CCHN" value={formData.CCHN_Number} onChange={e => setFormData({...formData, CCHN_Number: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white outline-none transition-all" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 mb-2">NGÀY CẤP</label>
-                                        <input type="date" value={formData.CCHN_IssueDate} onChange={e => setFormData({...formData, CCHN_IssueDate: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white outline-none" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-orange-600 mb-2">NGÀY HẾT HẠN (DÙNG ĐỂ CẢNH BÁO)</label>
-                                        <input type="date" value={formData.CCHN_ExpDate} onChange={e => setFormData({...formData, CCHN_ExpDate: e.target.value})} className="w-full px-4 py-2.5 bg-orange-50 border border-orange-200 rounded-xl focus:ring-2 focus:ring-orange-200 outline-none" />
-                                    </div>
+                                    <div><label className="block text-xs font-bold text-gray-500 mb-2">SỐ CHỨNG CHỈ HÀNH NGHỀ</label><input type="text" placeholder="VD: 001234/BYT-CCHN" value={formData.CCHN_Number} onChange={e => setFormData({...formData, CCHN_Number: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white outline-none transition-all" /></div>
+                                    <div><label className="block text-xs font-bold text-gray-500 mb-2">NGÀY CẤP</label><input type="date" value={formData.CCHN_IssueDate} onChange={e => setFormData({...formData, CCHN_IssueDate: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white outline-none" /></div>
+                                    <div><label className="block text-xs font-bold text-orange-600 mb-2">NGÀY HẾT HẠN</label><input type="date" value={formData.CCHN_ExpDate} onChange={e => setFormData({...formData, CCHN_ExpDate: e.target.value})} className="w-full px-4 py-2.5 bg-orange-50 border border-orange-200 rounded-xl focus:ring-2 focus:ring-orange-200 outline-none" /></div>
                                 </div>
                             </div>
-
-                            {/* II. SINH HOẠT ĐẢNG */}
                             <div>
                                 <h3 className="text-lg font-bold text-[#1E293B] border-b pb-2 mb-4">II. Sinh hoạt Đảng</h3>
                                 <div className="grid grid-cols-2 gap-6 mb-6">
@@ -348,9 +395,8 @@ export default function EmployeeForm() {
                                     <div><label className="block text-xs font-bold text-gray-500 mb-2">SỐ THẺ ĐẢNG VIÊN</label><input type="text" placeholder="Nhập số thẻ Đảng..." value={formData.PartyCardNumber} onChange={e => setFormData({...formData, PartyCardNumber: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white outline-none" /></div>
                                     <div><label className="block text-xs font-bold text-gray-500 mb-2">SINH HOẠT TẠI CHI BỘ</label><input type="text" placeholder="Nhập tên chi bộ..." value={formData.PartyCell} onChange={e => setFormData({...formData, PartyCell: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white outline-none" /></div>
                                 </div>
-                                
-                                <h3 className="text-lg font-bold text-[#1E293B] border-b pb-2 mb-4">III. Ghi chú & Cảnh báo</h3>
-                                <div><label className="block text-xs font-bold text-gray-500 mb-2">GHI CHÚ HỒ SƠ</label><textarea rows={3} placeholder="Ghi chú thêm về nhân sự này..." value={formData.Note} onChange={e => setFormData({...formData, Note: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white outline-none"></textarea></div>
+                                <h3 className="text-lg font-bold text-[#1E293B] border-b pb-2 mb-4">III. Ghi chú</h3>
+                                <div><textarea rows={3} placeholder="Ghi chú thêm..." value={formData.Note} onChange={e => setFormData({...formData, Note: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white outline-none"></textarea></div>
                             </div>
                         </div>
                     )}
@@ -384,9 +430,8 @@ export default function EmployeeForm() {
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-6 mb-6">
-                                    {/* MỚI: MỐC THỜI GIAN HƯỞNG LƯƠNG */}
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-500 mb-2">MỐC HƯỞNG BẬC LƯƠNG TỪ NGÀY <span className="text-red-500">*</span></label>
+                                        <label className="block text-xs font-bold text-gray-500 mb-2">MỐC HƯỞNG BẬC TỪ NGÀY <span className="text-red-500">*</span></label>
                                         <input type="date" value={formData.SalaryStartDate} onChange={e => setFormData({...formData, SalaryStartDate: e.target.value})} className="w-full px-4 py-2.5 bg-white border border-emerald-300 rounded-xl focus:ring-2 focus:ring-emerald-200 outline-none" />
                                     </div>
                                     <div className="p-5 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center justify-between">
@@ -403,7 +448,7 @@ export default function EmployeeForm() {
             {/* STICKY FOOTER */}
             <div className="bg-white px-8 py-4 border-t border-gray-200 shadow-[0_-10px_30px_rgba(0,0,0,0.03)] flex justify-end gap-4 z-20">
                 <button onClick={() => navigate("/")} className="px-6 py-2.5 rounded-xl text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">Hủy bỏ</button>
-                <button onClick={handleSave} disabled={isSaving} className={`px-8 py-2.5 rounded-xl text-sm font-bold text-white shadow-lg transition-all ${isSaving ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 shadow-blue-600/20"}`}>
+                <button onClick={handleSave} disabled={isSaving || isUploading} className={`px-8 py-2.5 rounded-xl text-sm font-bold text-white shadow-lg transition-all ${isSaving || isUploading ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 shadow-blue-600/20"}`}>
                     {isSaving ? "⏳ Đang lưu hồ sơ..." : "🚀 Lưu Chính Thức"}
                 </button>
             </div>

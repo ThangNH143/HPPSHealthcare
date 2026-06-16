@@ -7,6 +7,8 @@ import wardRoutes from './routes/wardRoutes';
 import departmentRoutes from "./routes/departmentRoutes";
 import employeeRoutes from "./routes/employeeRoutes";
 import masterDataRoutes from "./routes/masterDataRoutes";
+import uploadRoutes from "./routes/uploadRoutes";
+import path from "path";
 
 dotenv.config();
 
@@ -15,6 +17,7 @@ const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // Đăng ký các API Routes
 app.use("/api", provinceRoutes);
@@ -22,6 +25,7 @@ app.use('/api/', wardRoutes);
 app.use("/api", departmentRoutes);
 app.use("/api", employeeRoutes);
 app.use("/api", masterDataRoutes);
+app.use("/api/upload", uploadRoutes);
 
 // Khởi tạo kết nối Database
 AppDataSource.initialize()
