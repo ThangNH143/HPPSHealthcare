@@ -103,6 +103,9 @@ export class Employee {
     @Column({ name: "PartyCardNumber", type: "nvarchar", length: 50, nullable: true })
     PartyCardNumber!: string;
 
+    @Column({ name: "PartyCardIssueDate", type: "date", nullable: true })
+    PartyCardIssueDate!: Date;
+
     @Column({ name: "PartyCell", type: "nvarchar", length: 255, nullable: true })
     PartyCell!: string;
 

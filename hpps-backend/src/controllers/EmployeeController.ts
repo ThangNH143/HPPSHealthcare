@@ -106,6 +106,7 @@ export class EmployeeController {
             newEmployee.PartyJoinDatePreliminary = data.PartyJoinDatePreliminary ? new Date(data.PartyJoinDatePreliminary) : (null as any);
             newEmployee.PartyJoinDateOfficial = data.PartyJoinDateOfficial ? new Date(data.PartyJoinDateOfficial) : (null as any);
             newEmployee.PartyCardNumber = data.PartyCardNumber || (null as any);
+            newEmployee.PartyCardIssueDate = data.PartyCardIssueDate ? new Date(data.PartyCardIssueDate) : (null as any);
             newEmployee.PartyCell = data.PartyCell || (null as any);
 
             newEmployee.JobTitleID = data.JobTitleID ? Number(data.JobTitleID) : (null as any);

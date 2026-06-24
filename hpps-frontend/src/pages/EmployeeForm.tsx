@@ -22,8 +22,8 @@ export default function EmployeeForm() {
         EmployeeType: "Biên chế", RecruitmentSource: "", ProbationStatus: "Chính thức", ContractURL: "",
         
         // TAB 3: CHỨNG CHỈ & ĐẢNG
-        CCHN_Number: "", CCHN_IssueDate: "", CCHN_ExpDate: "", 
-        PartyJoinDatePreliminary: "", PartyJoinDateOfficial: "", PartyCardNumber: "", PartyCell: "", Note: "",
+        CCHN_Number: "", CCHN_IssueDate: "", CCHN_ExpDate: "", Note: "",
+        PartyJoinDatePreliminary: "", PartyJoinDateOfficial: "", PartyCardNumber: "", PartyCardIssueDate: "", PartyCell: "", 
         
         // TAB 4: TIỀN LƯƠNG
         JobTitleID: "", GradeID: "", StepID: "", Coefficient: 0, SalaryStartDate: ""
@@ -139,6 +139,7 @@ export default function EmployeeForm() {
                 JobTitleID: formData.JobTitleID ? Number(formData.JobTitleID) : null,
                 GradeID: formData.GradeID ? Number(formData.GradeID) : null,
                 StepID: formData.StepID ? Number(formData.StepID) : null,
+                PartyCardIssueDate: formData.PartyCardIssueDate,
                 ContractURL: formData.ContractURL,
                 qualifications: validQualifications 
             };
@@ -160,8 +161,9 @@ export default function EmployeeForm() {
     const tabs = [
         { id: "hanh-chinh", name: "1. Hành chính & Địa chỉ", icon: "👤" },
         { id: "cong-tac", name: "2. Trình độ & Công tác", icon: "🏢" },
-        { id: "chung-chi", name: "3. Chứng chỉ & Đảng", icon: "📜" },
-        { id: "tien-luong", name: "4. Tiền lương", icon: "💰" },
+        { id: "cchn", name: "3. Chứng chỉ hành nghề", icon: "📜" },
+        { id: "dang", name: "4. Đảng", icon: "⭐" },
+        { id: "tien-luong", name: "5. Tiền lương", icon: "💰" },
     ];
 
     return (
@@ -376,32 +378,75 @@ export default function EmployeeForm() {
                         </div>
                     )}
 
-                    {/* TAB 3: CHỨNG CHỈ & ĐẢNG */}
-                    {activeTab === "chung-chi" && (
+                    {/* TAB 3: CHỨNG CHỈ HÀNH NGHỀ (CCHN) */}
+                    {activeTab === "cchn" && (
                         <div className="animate-fade-in space-y-8">
-                            <div>
-                                <h3 className="text-lg font-bold text-[#1E293B] border-b pb-2 mb-4">I. Chứng chỉ hành nghề (CCHN)</h3>
+                            <div className="p-6 bg-white rounded-xl border border-gray-200 shadow-sm">
+                                <h3 className="text-lg font-bold text-[#1E293B] border-b pb-2 mb-4">Chứng chỉ hành nghề (CCHN)</h3>
+                                
+                                {/* Khối CCHN */}
                                 <div className="grid grid-cols-3 gap-6 mb-6">
-                                    <div><label className="block text-xs font-bold text-gray-500 mb-2">SỐ CHỨNG CHỈ HÀNH NGHỀ</label><input type="text" placeholder="VD: 001234/BYT-CCHN" value={formData.CCHN_Number} onChange={e => setFormData({...formData, CCHN_Number: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white outline-none transition-all" /></div>
-                                    <div><label className="block text-xs font-bold text-gray-500 mb-2">NGÀY CẤP</label><input type="date" value={formData.CCHN_IssueDate} onChange={e => setFormData({...formData, CCHN_IssueDate: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white outline-none" /></div>
-                                    <div><label className="block text-xs font-bold text-orange-600 mb-2">NGÀY HẾT HẠN</label><input type="date" value={formData.CCHN_ExpDate} onChange={e => setFormData({...formData, CCHN_ExpDate: e.target.value})} className="w-full px-4 py-2.5 bg-orange-50 border border-orange-200 rounded-xl focus:ring-2 focus:ring-orange-200 outline-none" /></div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-2">SỐ CHỨNG CHỈ HÀNH NGHỀ</label>
+                                        <input type="text" placeholder="VD: 001234/BYT-CCHN" value={formData.CCHN_Number} onChange={e => setFormData({...formData, CCHN_Number: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white outline-none transition-all" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-2">NGÀY CẤP CCHN</label>
+                                        <input type="date" value={formData.CCHN_IssueDate} onChange={e => setFormData({...formData, CCHN_IssueDate: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white outline-none" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-orange-600 mb-2">NGÀY HẾT HẠN CCHN (CẢNH BÁO)</label>
+                                        <input type="date" value={formData.CCHN_ExpDate} onChange={e => setFormData({...formData, CCHN_ExpDate: e.target.value})} className="w-full px-4 py-2.5 bg-orange-50 border border-orange-200 rounded-xl focus:ring-2 focus:ring-orange-200 outline-none" />
+                                    </div>
                                 </div>
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-bold text-[#1E293B] border-b pb-2 mb-4">II. Sinh hoạt Đảng</h3>
-                                <div className="grid grid-cols-2 gap-6 mb-6">
-                                    <div><label className="block text-xs font-bold text-gray-500 mb-2">NGÀY VÀO ĐẢNG (DỰ BỊ)</label><input type="date" value={formData.PartyJoinDatePreliminary} onChange={e => setFormData({...formData, PartyJoinDatePreliminary: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white outline-none" /></div>
-                                    <div><label className="block text-xs font-bold text-gray-500 mb-2">NGÀY VÀO ĐẢNG (CHÍNH THỨC)</label><input type="date" value={formData.PartyJoinDateOfficial} onChange={e => setFormData({...formData, PartyJoinDateOfficial: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white outline-none" /></div>
-                                    <div><label className="block text-xs font-bold text-gray-500 mb-2">SỐ THẺ ĐẢNG VIÊN</label><input type="text" placeholder="Nhập số thẻ Đảng..." value={formData.PartyCardNumber} onChange={e => setFormData({...formData, PartyCardNumber: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white outline-none" /></div>
-                                    <div><label className="block text-xs font-bold text-gray-500 mb-2">SINH HOẠT TẠI CHI BỘ</label><input type="text" placeholder="Nhập tên chi bộ..." value={formData.PartyCell} onChange={e => setFormData({...formData, PartyCell: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white outline-none" /></div>
+
+                                {/* Khối Ghi chú (Gộp chung vào CCHN theo yêu cầu) */}
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-2">GHI CHÚ HỒ SƠ</label>
+                                    <textarea rows={3} placeholder="Ghi chú thêm về nhân sự hoặc chứng chỉ..." value={formData.Note} onChange={e => setFormData({...formData, Note: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white outline-none"></textarea>
                                 </div>
-                                <h3 className="text-lg font-bold text-[#1E293B] border-b pb-2 mb-4">III. Ghi chú</h3>
-                                <div><textarea rows={3} placeholder="Ghi chú thêm..." value={formData.Note} onChange={e => setFormData({...formData, Note: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white outline-none"></textarea></div>
                             </div>
                         </div>
                     )}
 
-                    {/* TAB 4: TIỀN LƯƠNG */}
+                    {/* TAB 4: THÔNG TIN ĐẢNG */}
+                    {activeTab === "dang" && (
+                        <div className="animate-fade-in space-y-8">
+                            <div className="p-6 bg-red-50/30 rounded-xl border border-red-100 shadow-sm">
+                                <h3 className="text-lg font-bold text-red-800 border-b border-red-100 pb-2 mb-4">Thông tin Sinh hoạt Đảng</h3>
+                                
+                                {/* Dòng 1: Ngày vào Đảng */}
+                                <div className="grid grid-cols-2 gap-6 mb-6">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-600 mb-2">NGÀY VÀO ĐẢNG (DỰ BỊ)</label>
+                                        <input type="date" value={formData.PartyJoinDatePreliminary} onChange={e => setFormData({...formData, PartyJoinDatePreliminary: e.target.value})} className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-100 outline-none" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-600 mb-2">NGÀY VÀO ĐẢNG (CHÍNH THỨC)</label>
+                                        <input type="date" value={formData.PartyJoinDateOfficial} onChange={e => setFormData({...formData, PartyJoinDateOfficial: e.target.value})} className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-100 outline-none" />
+                                    </div>
+                                </div>
+
+                                {/* Dòng 2: Thẻ Đảng & Chi bộ */}
+                                <div className="grid grid-cols-3 gap-6">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-600 mb-2">SỐ THẺ ĐẢNG VIÊN</label>
+                                        <input type="text" placeholder="Nhập số thẻ Đảng..." value={formData.PartyCardNumber} onChange={e => setFormData({...formData, PartyCardNumber: e.target.value})} className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-100 outline-none" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-600 mb-2">NGÀY CẤP THẺ ĐẢNG</label>
+                                        <input type="date" value={formData.PartyCardIssueDate} onChange={e => setFormData({...formData, PartyCardIssueDate: e.target.value})} className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-100 outline-none" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-600 mb-2">SINH HOẠT TẠI CHI BỘ</label>
+                                        <input type="text" placeholder="Nhập tên chi bộ..." value={formData.PartyCell} onChange={e => setFormData({...formData, PartyCell: e.target.value})} className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-100 outline-none" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* TAB 5: TIỀN LƯƠNG */}
                     {activeTab === "tien-luong" && (
                         <div className="animate-fade-in space-y-8">
                             <div>
