@@ -11,6 +11,7 @@ function App() {
                     <Route path="/" element={<EmployeeList />} />
                     <Route path="/settings" element={<MasterDataSettings />} />
                     <Route path="/employees/new" element={<EmployeeForm />} />
+                    <Route path="/employee/edit/:id" element={<EmployeeForm />} />
                 </Routes>
             </div>
         </BrowserRouter>

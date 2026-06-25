@@ -1,14 +1,17 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import api from "../services/api"; 
 
 export default function EmployeeForm() {
     const navigate = useNavigate();
+    const { id } = useParams(); // Lấy ID từ URL
+    const isEditMode = !!id;    // Cờ xác định đang ở chế độ Edit
+
     const [activeTab, setActiveTab] = useState("hanh-chinh");
-    const [isUploading, setIsUploading] = useState(false); // Trạng thái báo đang tải file
+    const [isUploading, setIsUploading] = useState(false);
 
     // ==========================================
-    // 1. STATE QUẢN LÝ DỮ LIỆU NHẬP LIỆU (ALL TABS)
+    // 1. STATE QUẢN LÝ DỮ LIỆU NHẬP LIỆU
     // ==========================================
     const [formData, setFormData] = useState({
         // TAB 1
@@ -18,24 +21,26 @@ export default function EmployeeForm() {
         // TAB 2
         Qualification: "Đại học", DepartmentID: "", PositionID: "", 
         ValidFrom_Dept: "", ValidFrom_Pos: "", 
-        DecisionURL_Dept: "", DecisionURL_Pos: "", // MỚI: State lưu URL quyết định
+        DecisionURL_Dept: "", DecisionURL_Pos: "", 
         EmployeeType: "Biên chế", RecruitmentSource: "", ProbationStatus: "Chính thức", ContractURL: "",
         
-        // TAB 3: CHỨNG CHỈ & ĐẢNG
+        // TAB 3 & 4
         CCHN_Number: "", CCHN_IssueDate: "", CCHN_ExpDate: "", Note: "",
         PartyJoinDatePreliminary: "", PartyJoinDateOfficial: "", PartyCardNumber: "", PartyCardIssueDate: "", PartyCell: "", 
         
-        // TAB 4: TIỀN LƯƠNG
+        // TAB 5
         JobTitleID: "", GradeID: "", StepID: "", Coefficient: 0, SalaryStartDate: ""
     });
 
     const [qualifications, setQualifications] = useState([
-        { QualType: "Chuyên môn", QualName: "", IssuePlace: "", IssueDateText: "", AttachmentURL: "" }, // Bổ sung AttachmentURL
+        { QualType: "Chuyên môn", QualName: "", IssuePlace: "", IssueDateText: "", AttachmentURL: "" }, 
         { QualType: "Ngoại ngữ", QualName: "", IssuePlace: "", IssueDateText: "", AttachmentURL: "" },
         { QualType: "Tin học", QualName: "", IssuePlace: "", IssueDateText: "", AttachmentURL: "" }
     ]);
 
-    // [CÁC KHAI BÁO STATE DANH MỤC VÀ USE-EFFECT GIỮ NGUYÊN...]
+    // ==========================================
+    // 2. STATE DANH MỤC (MASTER DATA)
+    // ==========================================
     const [provinces, setProvinces] = useState<any[]>([]);
     const [wards, setWards] = useState<any[]>([]);
     const [departments, setDepartments] = useState<any[]>([]);
@@ -46,16 +51,136 @@ export default function EmployeeForm() {
     const [filteredSteps, setFilteredSteps] = useState<any[]>([]);
     const [isSaving, setIsSaving] = useState(false);
 
+    // ==========================================
+    // 3. EFFECT: TẢI DANH MỤC & DỮ LIỆU CŨ (NẾU EDIT)
+    // ==========================================
     useEffect(() => {
-        const parseData = (res: any) => res.data?.data || (Array.isArray(res.data) ? res.data : []);
-        api.get("/provinces").then(res => setProvinces(parseData(res))).catch(console.error);
-        api.get("/departments").then(res => setDepartments(parseData(res))).catch(console.error);
-        api.get("/positions").then(res => setPositions(parseData(res))).catch(console.error);
-        api.get("/job-titles").then(res => setJobTitles(parseData(res))).catch(console.error);
-        api.get("/salary-grades").then(res => setSalaryGrades(parseData(res))).catch(console.error);
-        api.get("/salary-steps").then(res => setSalarySteps(parseData(res))).catch(console.error);
+        const fetchMasterData = async () => {
+            const parseData = (res: any) => res.data?.data || (Array.isArray(res.data) ? res.data : []);
+            try {
+                const [provRes, deptRes, posRes, jobRes, gradeRes, stepRes] = await Promise.all([
+                    api.get("/provinces"), api.get("/departments"), api.get("/positions"),
+                    api.get("/job-titles"), api.get("/salary-grades"), api.get("/salary-steps")
+                ]);
+                
+                setProvinces(parseData(provRes));
+                setDepartments(parseData(deptRes));
+                setPositions(parseData(posRes));
+                setJobTitles(parseData(jobRes));
+                setSalaryGrades(parseData(gradeRes));
+                setSalarySteps(parseData(stepRes));
+            } catch (error) {
+                console.error("Lỗi tải danh mục:", error);
+            }
+        };
+
+        fetchMasterData();
     }, []);
 
+    // Hiệu ứng riêng để tải dữ liệu Employee khi sửa
+    useEffect(() => {
+        if (isEditMode && id) {
+            const fetchEmployee = async () => {
+                try {
+                    const res = await api.get(`/employees/${id}`);
+                    const emp = res.data.data;
+                    
+                    if (emp) {
+                        const formatDate = (dateStr: string) => dateStr ? new Date(dateStr).toISOString().split('T')[0] : "";
+
+                        setFormData(prev => ({
+                            ...prev,
+                            EmployeeCode: emp.EmployeeCode || "",
+                            FullName: emp.FullName || "",
+                            Gender: emp.Gender ? "Nam" : "Nữ",
+                            DOB: formatDate(emp.BirthDate),
+                            CCCD: emp.IdentityCardNumber || "",
+                            IssueDate: formatDate(emp.IdentityCardDate),
+                            IssuePlace: emp.IdentityCardPlace || "",
+                            Phone: emp.PhoneNumber || "",
+                            Email: emp.Email || "",
+                            Ethnicity: emp.Ethnicity || "",
+                            Religion: emp.Religion || "",
+                            BHYT: emp.BHYT || "",
+                            BHXH: emp.BHXH || "",
+                            ProvinceID: emp.HometownProvinceID?.toString() || "",
+                            WardID: emp.CurrentWardID?.toString() || "",
+                            BirthPlaceProvinceID: emp.BirthPlaceProvinceID?.toString() || "",
+                            AddressDetail: emp.HamletAddress || "",
+                            
+                            DepartmentID: emp.DepartmentID?.toString() || "",
+                            PositionID: emp.PositionID?.toString() || "",
+                            ValidFrom_Dept: emp.departments?.[0] ? formatDate(emp.departments[0].ValidFrom) : formatDate(emp.JoinDate),
+                            ValidFrom_Pos: emp.positions?.[0] ? formatDate(emp.positions[0].ValidFrom) : "",
+                            DecisionURL_Dept: emp.departments?.[0]?.DecisionURL || "",
+                            DecisionURL_Pos: emp.positions?.[0]?.DecisionURL || "",
+                            EmployeeType: emp.EmployeeType || "Biên chế",
+                            RecruitmentSource: emp.RecruitmentSource || "",
+                            ProbationStatus: emp.ProbationStatus || "Chính thức",
+                            ContractURL: emp.ContractURL || "",
+
+                            CCHN_Number: emp.LicenseNumber || "",
+                            CCHN_IssueDate: formatDate(emp.LicenseDate),
+                            CCHN_ExpDate: formatDate(emp.LicenseEndDate),
+                            Note: emp.Note || "",
+
+                            PartyJoinDatePreliminary: formatDate(emp.PartyJoinDatePreliminary),
+                            PartyJoinDateOfficial: formatDate(emp.PartyJoinDateOfficial),
+                            PartyCardNumber: emp.PartyCardNumber || "",
+                            PartyCardIssueDate: formatDate(emp.PartyCardIssueDate),
+                            PartyCell: emp.PartyCell || "",
+
+                            JobTitleID: emp.JobTitleID?.toString() || "",
+                            GradeID: emp.jobTitle?.GradeID?.toString() || "",
+                            StepID: emp.SalaryStepID?.toString() || "",
+                            Coefficient: emp.salaryStep?.Coefficient || 0,
+                            SalaryStartDate: formatDate(emp.SalaryStartDate),
+                        }));
+
+                        // Load Xã/Phường
+                        if (emp.HometownProvinceID) {
+                            api.get(`/provinces/${emp.HometownProvinceID}/wards`).then(r => {
+                                setWards(r.data?.data || (Array.isArray(r.data) ? r.data : []));
+                            });
+                        }
+
+                        // Load Bằng cấp
+                        if (emp.qualifications && emp.qualifications.length > 0) {
+                            const loadedQuals = emp.qualifications.map((q: any) => ({
+                                QualType: q.QualType || "Khác",
+                                QualName: q.QualName || "",
+                                IssuePlace: q.IssuePlace || "",
+                                IssueDateText: q.IssueDateText || "",
+                                AttachmentURL: q.AttachmentURL || ""
+                            }));
+                            while (loadedQuals.length < 3) loadedQuals.push({ QualType: "Chuyên môn", QualName: "", IssuePlace: "", IssueDateText: "", AttachmentURL: "" });
+                            setQualifications(loadedQuals.slice(0, 3));
+                        }
+                    }
+                } catch (error) {
+                    console.error("Lỗi khi tải hồ sơ nhân viên:", error);
+                    alert("Không thể lấy dữ liệu nhân viên!");
+                }
+            };
+            fetchEmployee();
+        }
+    }, [id, isEditMode]);
+
+    // Tự động load bậc lương khi chức danh thay đổi (cho cả lúc Load Edit và Chọn mới)
+    useEffect(() => {
+        if (formData.JobTitleID && jobTitles.length > 0 && salarySteps.length > 0) {
+            const selectedJob = jobTitles.find(j => (j.JobTitleID || j.id).toString() === formData.JobTitleID.toString());
+            if (selectedJob) {
+                const stepsForGrade = salarySteps.filter(s => s.GradeID === selectedJob.GradeID);
+                setFilteredSteps(stepsForGrade);
+                if (!formData.GradeID) setFormData(prev => ({...prev, GradeID: selectedJob.GradeID}));
+            }
+        }
+    }, [formData.JobTitleID, jobTitles, salarySteps]);
+
+    // ==========================================
+    // 4. HÀM XỬ LÝ SỰ KIỆN GIAO DIỆN
+    // ==========================================
     const handleProvinceChange = async (provinceId: string) => {
         setFormData({ ...formData, ProvinceID: provinceId, WardID: "" });
         setWards([]); 
@@ -68,16 +193,7 @@ export default function EmployeeForm() {
     };
 
     const handleJobTitleChange = (jobTitleId: string) => {
-        const selectedJob = jobTitles.find(j => (j.JobTitleID || j.id).toString() === jobTitleId);
-        if (selectedJob) {
-            const gradeId = selectedJob.GradeID;
-            const stepsForGrade = salarySteps.filter(s => s.GradeID === gradeId);
-            setFormData({ ...formData, JobTitleID: jobTitleId, GradeID: gradeId, StepID: "", Coefficient: 0 });
-            setFilteredSteps(stepsForGrade);
-        } else {
-            setFormData({ ...formData, JobTitleID: "", GradeID: "", StepID: "", Coefficient: 0 });
-            setFilteredSteps([]);
-        }
+        setFormData({ ...formData, JobTitleID: jobTitleId, GradeID: "", StepID: "", Coefficient: 0 });
     };
 
     const handleStepChange = (stepId: string) => {
@@ -91,24 +207,16 @@ export default function EmployeeForm() {
         setQualifications(newQuals);
     };
 
-    // ==========================================
-    // MODULE: HÀM UPLOAD FILE LÊN SERVER
-    // ==========================================
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => {
         if (!e.target.files || e.target.files.length === 0) return;
-        
         const file = e.target.files[0];
         const uploadData = new FormData();
         uploadData.append("file", file);
         
         try {
             setIsUploading(true);
-            const res = await api.post("/upload", uploadData, {
-                headers: { "Content-Type": "multipart/form-data" }
-            });
-            if (res.data.success) {
-                callback(res.data.url); // Trả URL về cho Form
-            }
+            const res = await api.post("/upload", uploadData, { headers: { "Content-Type": "multipart/form-data" } });
+            if (res.data.success) callback(res.data.url);
         } catch (error) {
             console.error("Lỗi upload", error);
             alert("Lỗi tải file lên Server! Vui lòng thử lại.");
@@ -118,7 +226,7 @@ export default function EmployeeForm() {
     };
 
     // ==========================================
-    // HÀM XỬ LÝ LƯU DỮ LIỆU
+    // 5. HÀM LƯU DỮ LIỆU (POST / PUT)
     // ==========================================
     const handleSave = async () => {
         if (!formData.EmployeeCode.trim()) return alert("Vui lòng nhập Mã nhân viên!");
@@ -141,13 +249,20 @@ export default function EmployeeForm() {
                 StepID: formData.StepID ? Number(formData.StepID) : null,
                 PartyCardIssueDate: formData.PartyCardIssueDate,
                 ContractURL: formData.ContractURL,
+                DecisionURL_Dept: formData.DecisionURL_Dept,
+                DecisionURL_Pos: formData.DecisionURL_Pos,
                 qualifications: validQualifications 
             };
 
-            const res = await api.post("/employees", payload);
+            let res;
+            if (isEditMode) {
+                res = await api.put(`/employees/${id}`, payload);
+            } else {
+                res = await api.post("/employees", payload);
+            }
             
             if (res.data) {
-                alert("🎉 Thêm mới hồ sơ nhân sự thành công!");
+                alert(`🎉 ${isEditMode ? "Cập nhật" : "Thêm mới"} hồ sơ nhân sự thành công!`);
                 navigate("/"); 
             }
         } catch (error: any) {
@@ -168,9 +283,12 @@ export default function EmployeeForm() {
 
     return (
         <div className="flex flex-col h-screen w-screen bg-[#F4F7FC] overflow-hidden">
+            {/* HEADER ĐỘNG DỰA THEO CHẾ ĐỘ */}
             <div className="bg-white px-8 py-5 border-b border-gray-200 shadow-sm flex justify-between items-center z-10">
                 <div>
-                    <h1 className="text-2xl font-bold text-[#1E293B]">✨ Thêm Mới Hồ Sơ Nhân Sự</h1>
+                    <h1 className="text-2xl font-bold text-[#1E293B]">
+                        {isEditMode ? "✏️ Chỉnh Sửa Hồ Sơ Nhân Sự" : "✨ Thêm Mới Hồ Sơ Nhân Sự"}
+                    </h1>
                     <p className="text-sm text-gray-500 mt-1">Hệ thống Quản lý Nhân sự - Tiền lương Y tế</p>
                 </div>
                 <button onClick={() => navigate("/")} className="text-gray-400 hover:text-gray-600 transition-colors font-medium text-sm flex items-center gap-2">✕ Đóng Form</button>
@@ -186,7 +304,6 @@ export default function EmployeeForm() {
                 </nav>
             </div>
 
-            {/* HIỂN THỊ CẢNH BÁO ĐANG TẢI FILE */}
             {isUploading && (
                 <div className="bg-blue-500 text-white text-center text-xs py-1 font-bold animate-pulse">
                     ⏳ Đang tải file lên máy chủ... Vui lòng chờ!
@@ -200,7 +317,7 @@ export default function EmployeeForm() {
                     {activeTab === "hanh-chinh" && (
                         <div className="animate-fade-in space-y-8">
                             <div>
-                                <h3 className="text-lg font-bold text-[#1E293B] border-b pb-2 mb-4">I. Thông tin cơ bản</h3>
+                                <h3 className="text-lg font-bold text-[#1E293B] border-b pb-2 mb-4">I. Thông tự cơ bản</h3>
                                 <div className="grid grid-cols-4 gap-6">
                                     <div><label className="block text-xs font-bold text-gray-500 mb-2">MÃ NHÂN VIÊN <span className="text-red-500">*</span></label><input type="text" placeholder="VD: NV001" value={formData.EmployeeCode} onChange={e => setFormData({...formData, EmployeeCode: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-100 outline-none transition-all" /></div>
                                     <div className="col-span-2"><label className="block text-xs font-bold text-gray-500 mb-2">HỌ VÀ TÊN <span className="text-red-500">*</span></label><input type="text" placeholder="Nhập họ và tên đầy đủ..." value={formData.FullName} onChange={e => setFormData({...formData, FullName: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-100 outline-none transition-all" /></div>
@@ -316,20 +433,19 @@ export default function EmployeeForm() {
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-500 mb-2">NGUỒN / CƠ QUAN TUYỂN DỤNG</label>
+                                        <label className="block text-xs font-bold text-gray-500 mb-2">NGUỒN T.DỤNG</label>
                                         <input type="text" placeholder="VD: Sở Y Tế cấp..." value={formData.RecruitmentSource} onChange={e => setFormData({...formData, RecruitmentSource: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none" />
                                     </div>
                                     
-                                    {/* MỚI: NÚT UPLOAD BẢN SCAN HỢP ĐỒNG */}
                                     <div className="bg-orange-50/50 p-3 rounded-xl border border-orange-100 flex flex-col justify-center">
-                                        <label className="block text-[10px] font-bold text-orange-800 mb-1">BẢN SCAN HỢP ĐỒNG / QUYẾT ĐỊNH</label>
+                                        <label className="block text-[10px] font-bold text-orange-800 mb-1">BẢN SCAN HỢP ĐỒNG</label>
                                         <input 
                                             type="file" 
                                             accept=".pdf,.jpg,.jpeg,.png" 
                                             onChange={(e) => handleFileUpload(e, (url) => setFormData({...formData, ContractURL: url}))} 
                                             className="w-full text-[10px] file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-orange-100 file:text-orange-700 hover:file:bg-orange-200 cursor-pointer" 
                                         />
-                                        {formData.ContractURL && <span className="text-[10px] text-green-600 font-bold block mt-1">✅ Đã lưu file Hợp đồng</span>}
+                                        {formData.ContractURL && <span className="text-[10px] text-green-600 font-bold block mt-1">✅ Đã lưu Hợp đồng</span>}
                                     </div>
                                 </div>
 
@@ -384,7 +500,6 @@ export default function EmployeeForm() {
                             <div className="p-6 bg-white rounded-xl border border-gray-200 shadow-sm">
                                 <h3 className="text-lg font-bold text-[#1E293B] border-b pb-2 mb-4">Chứng chỉ hành nghề (CCHN)</h3>
                                 
-                                {/* Khối CCHN */}
                                 <div className="grid grid-cols-3 gap-6 mb-6">
                                     <div>
                                         <label className="block text-xs font-bold text-gray-500 mb-2">SỐ CHỨNG CHỈ HÀNH NGHỀ</label>
@@ -400,7 +515,6 @@ export default function EmployeeForm() {
                                     </div>
                                 </div>
 
-                                {/* Khối Ghi chú (Gộp chung vào CCHN theo yêu cầu) */}
                                 <div>
                                     <label className="block text-xs font-bold text-gray-500 mb-2">GHI CHÚ HỒ SƠ</label>
                                     <textarea rows={3} placeholder="Ghi chú thêm về nhân sự hoặc chứng chỉ..." value={formData.Note} onChange={e => setFormData({...formData, Note: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white outline-none"></textarea>
@@ -415,7 +529,6 @@ export default function EmployeeForm() {
                             <div className="p-6 bg-red-50/30 rounded-xl border border-red-100 shadow-sm">
                                 <h3 className="text-lg font-bold text-red-800 border-b border-red-100 pb-2 mb-4">Thông tin Sinh hoạt Đảng</h3>
                                 
-                                {/* Dòng 1: Ngày vào Đảng */}
                                 <div className="grid grid-cols-2 gap-6 mb-6">
                                     <div>
                                         <label className="block text-xs font-bold text-gray-600 mb-2">NGÀY VÀO ĐẢNG (DỰ BỊ)</label>
@@ -427,7 +540,6 @@ export default function EmployeeForm() {
                                     </div>
                                 </div>
 
-                                {/* Dòng 2: Thẻ Đảng & Chi bộ */}
                                 <div className="grid grid-cols-3 gap-6">
                                     <div>
                                         <label className="block text-xs font-bold text-gray-600 mb-2">SỐ THẺ ĐẢNG VIÊN</label>
@@ -494,7 +606,7 @@ export default function EmployeeForm() {
             <div className="bg-white px-8 py-4 border-t border-gray-200 shadow-[0_-10px_30px_rgba(0,0,0,0.03)] flex justify-end gap-4 z-20">
                 <button onClick={() => navigate("/")} className="px-6 py-2.5 rounded-xl text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">Hủy bỏ</button>
                 <button onClick={handleSave} disabled={isSaving || isUploading} className={`px-8 py-2.5 rounded-xl text-sm font-bold text-white shadow-lg transition-all ${isSaving || isUploading ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 shadow-blue-600/20"}`}>
-                    {isSaving ? "⏳ Đang lưu hồ sơ..." : "🚀 Lưu Chính Thức"}
+                    {isSaving ? "⏳ Đang lưu hồ sơ..." : (isEditMode ? "🚀 Cập Nhật Hồ Sơ" : "🚀 Lưu Chính Thức")}
                 </button>
             </div>
         </div>

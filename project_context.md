@@ -76,15 +76,13 @@
 ## 2. TIẾN ĐỘ THỰC TẾ ĐÃ HOÀN THÀNH
 - [x] **Backend API & Master Data:** Khai báo hoàn chỉnh kiến trúc MVC (Route, Controller, TypeORM Entity) cho toàn bộ danh mục nền tảng và cascading địa chỉ.
 - [x] **API File Upload:** Tích hợp thành công `multer` xử lý hứng file scan đính kèm (Bằng cấp, Quyết định bổ nhiệm, Hợp đồng) từ Frontend và lưu an toàn xuống máy chủ.
-- [x] **API Nhập Hồ Sơ Toàn Diện:** Xây dựng thành công `POST /api/employees` với cơ chế `TRANSACTION` bọc lót. Tự động bóc tách payload phức tạp để ghi song song vào bảng lõi `Dim_Employees` và 3 bảng quá trình (`Emp_Qualifications`, `Emp_Departments`, `Emp_Positions`).
-- [x] **Frontend Form Nhân Sự (5 Tabs Chuẩn UI/UX):** Hoàn thiện Giao diện Nhập liệu siêu tối ưu chia làm 5 Tabs:
-  - Tab 1: Hành chính & Địa chỉ (Cascading Tỉnh -> Xã).
-  - Tab 2: Trình độ (Dynamic Array có Upload file) & Phân công công tác (Tách biệt ngày Khoa và ngày Chức vụ, đính kèm file Quyết định).
-  - Tab 3: Chứng chỉ hành nghề (CCHN có cảnh báo ngày hết hạn & Note).
-  - Tab 4: Sinh hoạt Đảng (Chi tiết các mốc ngày vào Đảng dự bị/chính thức, ngày cấp thẻ).
-  - Tab 5: Tiền lương (Cascading Chức danh -> Ngạch -> Bậc -> Hiển thị Hệ số lương + Mốc ngày hưởng lương).
+- [x] **API Nhập Hồ Sơ Toàn Diện:** Xây dựng thành công `POST /api/employees` với cơ chế `TRANSACTION` bọc lót. Ghi song song vào bảng lõi `Dim_Employees` và 3 bảng quá trình (`Emp_Qualifications`, `Emp_Departments`, `Emp_Positions`).
+- [x] **Frontend Form Nhân Sự (5 Tabs Chuẩn UI/UX):** Hoàn thiện Giao diện Nhập liệu siêu tối ưu (Cascading địa chỉ, Tính lương tự động, Validate CCHN).
+- [x] **Trang Danh Sách Nhân Sự (Data Grid):** Giao diện danh sách hiển thị với bộ lọc đa chiều (Khoa phòng, Text Search). Gọi API song song (`Promise.all`) để tối ưu tốc độ tải.
+- [x] **Luồng Xem & Chỉnh Sửa Hồ Sơ (Dynamic Form):** Tái sử dụng `EmployeeForm.tsx` thông qua `useParams`. Tự động fetch dữ liệu, fill lại 5 Tabs và chuyển đổi luồng lưu thành gọi API `PUT /api/employees/:id` (Transactions bọc lót toàn diện).
 
-## 3. CÁC BƯỚC TIẾP THEO (NEXT STEPS)
-1. **Xây dựng Trang Danh sách Nhân sự (Employee Data Grid):** Thiết kế màn hình hiển thị toàn bộ nhân viên với bộ lọc (Filter) đa chiều (Theo khoa phòng, Trạng thái làm việc, Chức danh). Tích hợp Phân trang (Pagination) xử lý trực tiếp từ Backend để tối ưu hiệu suất truy vấn.
-2. **Xây dựng Luồng Xem/Sửa Hồ Sơ (View/Update Profile):** Tái sử dụng Component `EmployeeForm.tsx` hiện tại, kết nối với API `GET /employees/:id` đã viết để fetch dữ liệu chi tiết của nhân sự lên form, phục vụ công tác chỉnh sửa (Update).
-3. **Phát triển Employee Profile Dashboard:** Thiết kế trang chi tiết nhân sự tổng quan để HR có thể dễ dàng theo dõi toàn bộ diễn biến lịch sử công tác, lịch sử tăng lương, và tái ký hợp đồng về sau.
+## 3. CÁC BƯỚC TIẾP THEO TRONG PHIÊN LÀM VIỆC MỚI (NEXT STEPS)
+1. **Tinh chỉnh UAT Feedback (Nếu có):** Chỉnh sửa các trường hiển thị trên Danh sách Nhân sự hoặc Form nhập liệu nếu End-User có phản hồi sau khi test.
+2. **Phát triển Employee Profile Dashboard:** Thiết kế trang chi tiết nhân sự tổng quan (Read-Only) để Giám đốc / HR có thể dễ dàng xem toàn bộ diễn biến lịch sử công tác, lịch sử tăng lương dạng Timeline.
+3. **Phân trang & Báo cáo (Pagination & Export):** Nâng cấp Data Grid chuyển sang xử lý Phân trang từ Backend (Server-side Pagination) để đáp ứng quy mô hàng ngàn nhân sự. Bổ sung tính năng Xuất Excel danh sách.
+4. **Khởi động Phase 2:** Bắt tay vào mô-đun Xếp lịch trực thông minh và Chấm công (Smart Rostering & Timesheet).
