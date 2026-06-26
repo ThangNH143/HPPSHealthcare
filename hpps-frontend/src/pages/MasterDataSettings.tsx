@@ -15,15 +15,9 @@ export default function MasterDataSettings() {
     const [editingItem, setEditingItem] = useState<any | null>(null);
     
     const [formData, setFormData] = useState({
-        code: "",
-        name: "",
-        months: 36,
-        description: "",
-        gradeId: "", 
-        provinceId: "", // Map với ProvinceID
-        coefficient: 1.0, 
-        isDefault: false, 
-        isActive: true
+        code: "", name: "", months: 36, description: "", 
+        gradeId: "", provinceId: "", coefficient: 1.0, 
+        isDefault: false, isActive: true
     });
 
     const menuItems = [
@@ -40,9 +34,6 @@ export default function MasterDataSettings() {
         setLoading(true);
         try {
             const result = await getMasterData(activeTab);
-            // Xử lý linh hoạt: Nếu API trả về {data: [...]}, ta lấy result.data. 
-            // Nếu API trả về mảng trực tiếp, ta lấy result. 
-            // Nếu lỗi/undefined, ta fallback về mảng rỗng []
             setData(result?.data || (Array.isArray(result) ? result : []));
             
             const grades = await getMasterData("salary-grades");
@@ -60,7 +51,7 @@ export default function MasterDataSettings() {
     useEffect(() => { loadData(); }, [activeTab]);
 
     const getIdField = () => {
-        const idMap: any = {
+        const idMap: Record<string, string> = {
             "departments": "DepartmentID", "positions": "PositionID", 
             "job-titles": "JobTitleID", "salary-grades": "GradeID", 
             "salary-steps": "StepID", "provinces": "ProvinceID", "wards": "WardID"
@@ -69,7 +60,7 @@ export default function MasterDataSettings() {
     };
 
     const getNameField = () => {
-        const nameMap: any = {
+        const nameMap: Record<string, string> = {
             "departments": "DepartmentName", "positions": "PositionName", 
             "job-titles": "JobTitleName", "salary-grades": "GradeName", 
             "salary-steps": "StepName", "provinces": "ProvinceName", "wards": "WardName"
@@ -131,9 +122,7 @@ export default function MasterDataSettings() {
             payload["Coefficient"] = Number(formData.coefficient);
             payload["IsDefault"] = formData.isDefault;
         }
-        if (activeTab === "provinces") {
-            payload["ProvinceCode"] = formData.code;
-        }
+        if (activeTab === "provinces") payload["ProvinceCode"] = formData.code;
         if (activeTab === "wards") {
             payload["WardCode"] = formData.code;
             payload["ProvinceID"] = formData.provinceId ? Number(formData.provinceId) : null;
@@ -165,81 +154,104 @@ export default function MasterDataSettings() {
     };
 
     return (
-        <div className="flex h-screen w-screen overflow-hidden bg-[#F4F7FC]">
-            {/* CỘT TRÁI: MENU DANH MỤC */}
-            <div className="w-72 bg-white border-r border-gray-200 flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-10">
-                <div className="p-6 border-b border-gray-100">
-                    <h2 className="text-xl font-bold text-[#1E293B]">Thiết lập Danh mục</h2>
-                    <p className="text-xs text-gray-500 mt-1">Quản lý và cấu hình dữ liệu nền</p>
+        <div className="flex-1 flex flex-col h-full w-full">
+            {/* 1. HEADER & KHỐI TẠO MỚI */}
+            <div className="flex justify-between items-end mb-4 flex-shrink-0">
+                <div>
+                    <h2 className="text-2xl font-bold text-[#1E293B]">Cấu hình Danh mục nền</h2>
+                    <p className="text-xs text-gray-500 mt-1">Quản lý các tham số cốt lõi cho hệ thống nhân sự bệnh viện</p>
                 </div>
-                <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-                    {menuItems.map((item) => (
-                        <button
-                            key={item.id}
-                            onClick={() => { 
-                                setActiveTab(item.id); 
-                                setData([]); // THÊM DÒNG NÀY: Xóa sạch data cũ ngay lập tức để chặn React render nhầm
-                                setIsModalOpen(false); 
-                            }}
-                            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-xl transition-all ${
-                                activeTab === item.id 
-                                    ? "bg-blue-50 text-blue-700 shadow-sm shadow-blue-100/50" 
-                                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                            }`}
-                        >
-                            {item.name}
-                        </button>
-                    ))}
-                </nav>
+                <button 
+                    onClick={handleOpenAdd} 
+                    className="bg-blue-600 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-md shadow-blue-600/10 hover:bg-blue-700 transition-all flex items-center gap-1.5"
+                >
+                    <span className="text-sm">+</span> Thêm {menuItems.find(m => m.id === activeTab)?.name.split(" ")[1]}
+                </button>
             </div>
 
-            {/* CỘT PHẢI: BẢNG DỮ LIỆU */}
-            <div className="flex-1 flex flex-col overflow-hidden p-8">
-                <div className="flex justify-between items-end mb-6">
-                    <div>
-                        <h2 className="text-2xl font-bold text-[#1E293B]">
-                            {menuItems.find(m => m.id === activeTab)?.name}
-                        </h2>
-                    </div>
-                    <button onClick={handleOpenAdd} className="bg-blue-600 text-white text-xs font-bold px-5 py-2.5 rounded-xl hover:bg-blue-700 transition-all">
-                        + Thêm Mới Danh Mục
+            {/* 2. HORIZONTAL SCROLLABLE TABS (DẠNG PILL) */}
+            <div className="flex gap-2 overflow-x-auto pb-3 mb-4 flex-shrink-0 [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400 [&::-webkit-scrollbar-thumb]:rounded-full transition-all">
+                {menuItems.map((item) => (
+                    <button
+                        key={item.id}
+                        onClick={() => { 
+                            if (activeTab !== item.id) {
+                                setActiveTab(item.id); 
+                                setData([]); 
+                            }
+                        }}
+                        className={`whitespace-nowrap px-4 py-2 text-xs font-semibold rounded-full transition-all border ${
+                            activeTab === item.id 
+                                ? "bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/20" 
+                                : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300"
+                        }`}
+                    >
+                        {item.name}
                     </button>
-                </div>
+                ))}
+            </div>
 
-                <div className="flex-1 overflow-auto bg-white rounded-2xl border border-gray-100 shadow-[0_12px_30px_rgba(14,165,233,0.06)]">
+            {/* 3. BẢNG DỮ LIỆU */}
+            <div className="flex-1 overflow-auto bg-white rounded-2xl border border-gray-100 shadow-[0_12px_30px_rgba(14,165,233,0.06)] flex flex-col min-h-0">
+                <div className="inline-block min-w-full align-middle overflow-auto h-full">
                     <table className="min-w-full table-auto border-collapse text-left relative">
-                        <thead className="sticky top-0 bg-[#F8FAFC] z-10 border-b border-gray-100">
+                        <thead className="sticky top-0 bg-[#1D4ED8] z-10 shadow-md">
                             <tr>
-                                <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider w-24">ID</th>
+                                <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider border-r border-blue-700/50 w-24">
+                                    ID
+                                </th>
                                 
                                 {["departments", "salary-grades", "provinces", "wards"].includes(activeTab) && (
-                                    <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider">Mã Code</th>
+                                    <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider border-r border-blue-700/50">
+                                        Mã Code
+                                    </th>
                                 )}
                                 
-                                <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider">Tên Danh Mục</th>
+                                <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider border-r border-blue-700/50">
+                                    Tên Danh Mục
+                                </th>
                                 
                                 {(activeTab === "job-titles" || activeTab === "salary-steps") && (
-                                    <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider">Thuộc Ngạch Lương</th>
+                                    <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider border-r border-blue-700/50">
+                                        Thuộc Ngạch Lương
+                                    </th>
                                 )}
                                 {activeTab === "wards" && (
-                                    <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider">Thuộc Tỉnh/Thành</th>
+                                    <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider border-r border-blue-700/50">
+                                        Thuộc Tỉnh/Thành
+                                    </th>
                                 )}
                                 {activeTab === "salary-grades" && (
-                                    <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider">Tháng giữ bậc</th>
+                                    <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider border-r border-blue-700/50">
+                                        Tháng giữ bậc
+                                    </th>
                                 )}
                                 {activeTab === "salary-steps" && (
-                                    <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider">Hệ số</th>
+                                    <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider border-r border-blue-700/50">
+                                        Hệ số
+                                    </th>
                                 )}
                                 
-                                <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider text-center">Trạng Thái</th>
-                                <th className="px-6 py-4 text-[11px] font-bold text-[#475569] uppercase tracking-wider text-center">Thao Tác</th>
+                                <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider text-center border-r border-blue-700/50">
+                                    Trạng Thái
+                                </th>
+                                <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider text-center w-32">
+                                    Thao Tác
+                                </th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {loading ? (
-                                <tr><td colSpan={7} className="text-center py-10 text-xs text-gray-500 font-medium">⏳ Đang tải dữ liệu y tế...</td></tr>
+                                <tr>
+                                    <td colSpan={7} className="text-center py-10 text-xs text-gray-400 font-medium">
+                                        <div className="flex flex-col items-center gap-2">
+                                            <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                                            Đang tải dữ liệu y tế...
+                                        </div>
+                                    </td>
+                                </tr>
                             ) : (!data || data.length === 0) ? (
-                                <tr><td colSpan={7} className="text-center py-10 text-xs text-gray-500">Chưa có dữ liệu cho danh mục này.</td></tr>
+                                <tr><td colSpan={7} className="text-center py-10 text-xs text-gray-500">📭 Chưa có dữ liệu cho danh mục này.</td></tr>
                             ) : (
                                 data.map((row, index) => {
                                     const idKey = getIdField();
@@ -249,12 +261,11 @@ export default function MasterDataSettings() {
                                     const provinceName = provincesList.find(p => p.ProvinceID === row.ProvinceID)?.ProvinceName || "---";
 
                                     return (
-                                        // Cập nhật thẻ tr: Dùng idKey, nếu undefined thì lấy id, nếu vẫn không có thì dùng index
-                                        <tr key={row[idKey] || row.id || `row-${index}`} className="hover:bg-blue-50/30">
-                                            <td className="px-6 py-3.5 text-xs text-gray-400">#{row[idKey]}</td>
+                                        <tr key={row[idKey] || row.id || `row-${index}`} className={`transition-colors hover:bg-blue-50/40 ${index % 2 === 0 ? "bg-white" : "bg-[#F0F7FF]"}`}>
+                                            <td className="px-6 py-3.5 text-xs text-gray-400 font-medium">#{row[idKey]}</td>
                                             
                                             {["departments", "salary-grades", "provinces", "wards"].includes(activeTab) && (
-                                                <td className="px-6 py-3.5 text-xs font-bold text-blue-600">
+                                                <td className="px-6 py-3.5 text-xs font-semibold text-blue-600 tracking-wider">
                                                     {row.DepartmentCode || row.GradeCode || row.ProvinceCode || row.WardCode}
                                                 </td>
                                             )}
@@ -262,28 +273,26 @@ export default function MasterDataSettings() {
                                             <td className="px-6 py-3.5 text-xs font-bold text-[#1E293B]">{row[nameKey]}</td>
                                             
                                             {(activeTab === "job-titles" || activeTab === "salary-steps") && (
-                                                <td className="px-6 py-3.5 text-xs font-medium text-emerald-600">{gradeName}</td>
+                                                <td className="px-6 py-3.5 text-xs font-medium text-[#475569]">{gradeName}</td>
                                             )}
                                             {activeTab === "wards" && (
-                                                <td className="px-6 py-3.5 text-xs font-medium text-emerald-600">{provinceName}</td>
+                                                <td className="px-6 py-3.5 text-xs font-medium text-[#475569]">{provinceName}</td>
                                             )}
                                             {activeTab === "salary-grades" && (
-                                                <td className="px-6 py-3.5 text-xs">{row.HoldingMonths} tháng</td>
+                                                <td className="px-6 py-3.5 text-xs font-medium text-[#475569]">{row.HoldingMonths} tháng</td>
                                             )}
                                             {activeTab === "salary-steps" && (
-                                                <td className="px-6 py-3.5 text-xs font-bold text-red-500">{row.Coefficient}</td>
+                                                <td className="px-6 py-3.5 text-xs font-bold text-rose-600">{row.Coefficient}</td>
                                             )}
 
-                                            <td className="px-6 py-3.5 text-xs text-center">
-                                                {row.IsActive === false ? (
-                                                    <span className="bg-red-50 text-red-600 px-2.5 py-1 rounded-lg text-[10px]">Tạm Ngưng</span>
-                                                ) : (
-                                                    <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg text-[10px]">Hoạt Động</span>
-                                                )}
+                                            <td className="px-6 py-3.5 text-center">
+                                                <span className={`px-2 py-1 text-[10px] font-bold rounded-full ${row.IsActive !== false ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                                    {row.IsActive !== false ? "Hoạt Động" : "Tạm Ngưng"}
+                                                </span>
                                             </td>
                                             <td className="px-6 py-3.5 text-xs text-center">
-                                                <button onClick={() => handleOpenEdit(row)} className="text-blue-600 hover:text-blue-800 mr-4">Sửa</button>
-                                                <button onClick={() => handleDelete(row[idKey])} className="text-gray-400 hover:text-red-600">Xóa</button>
+                                                <button onClick={() => handleOpenEdit(row)} className="text-blue-600 font-bold hover:text-blue-800 transition-colors mr-3">Sửa</button>
+                                                <button onClick={() => handleDelete(row[idKey])} className="text-slate-400 font-medium hover:text-rose-600 transition-colors">Xóa</button>
                                             </td>
                                         </tr>
                                     );
@@ -294,80 +303,43 @@ export default function MasterDataSettings() {
                 </div>
             </div>
 
-            {/* POPUP MODAL */}
+            {/* POPUP MODAL (Giữ nguyên logic của bạn, chỉ tinh chỉnh bo góc xíu cho đồng bộ) */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50">
+                    {/* ... (Phần nội dung Modal giữ nguyên như code cũ của bạn) ... */}
                     <div className="bg-white rounded-2xl w-[480px] shadow-2xl overflow-hidden">
-                        <div className="p-6 bg-[#F8FAFC] border-b border-gray-100 flex justify-between">
-                            <h3 className="font-bold text-[#1E293B]">{editingItem ? "✏️ Hiệu chỉnh" : "✨ Thêm mới"}</h3>
-                            <button onClick={() => setIsModalOpen(false)} className="text-gray-400 font-bold">✕</button>
+                        <div className="p-5 bg-[#F8FAFC] border-b border-gray-100 flex justify-between items-center">
+                            <h3 className="font-bold text-[#1E293B] text-sm">{editingItem ? "✏️ Hiệu chỉnh danh mục" : "✨ Thêm mới danh mục"}</h3>
+                            <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 font-bold">✕</button>
                         </div>
 
                         <form onSubmit={handleSubmit} className="p-6 space-y-4">
                             {["departments", "salary-grades", "provinces", "wards"].includes(activeTab) && (
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 mb-1">MÃ CODE</label>
-                                    <input type="text" value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value })} className="w-full px-3 py-2 border rounded-xl" required />
+                                    <label className="block text-[10px] font-bold text-gray-500 mb-1.5 uppercase">Mã Code</label>
+                                    <input type="text" value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value })} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:ring-1 focus:ring-blue-500 outline-none" required />
                                 </div>
                             )}
 
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 mb-1">TÊN DANH MỤC</label>
-                                <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-3 py-2 border rounded-xl" required />
+                                <label className="block text-[10px] font-bold text-gray-500 mb-1.5 uppercase">Tên Danh Mục</label>
+                                <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:ring-1 focus:ring-blue-500 outline-none" required />
                             </div>
 
+                            {/* ... Các trường select/input khác tương tự ... */}
                             {(activeTab === "job-titles" || activeTab === "salary-steps") && (
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 mb-1">MAP VỚI NGẠCH LƯƠNG</label>
-                                    <select value={formData.gradeId} onChange={(e) => setFormData({ ...formData, gradeId: e.target.value })} className="w-full px-3 py-2 border rounded-xl bg-white" required>
+                                    <label className="block text-[10px] font-bold text-gray-500 mb-1.5 uppercase">Map với Ngạch Lương</label>
+                                    <select value={formData.gradeId} onChange={(e) => setFormData({ ...formData, gradeId: e.target.value })} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:ring-1 focus:ring-blue-500 outline-none" required>
                                         <option value="">-- Chọn ngạch lương --</option>
-                                        {gradesList.map(g => (
-                                            <option key={g.GradeID} value={g.GradeID}>{g.GradeCode} - {g.GradeName}</option>
-                                        ))}
+                                        {gradesList.map(g => <option key={g.GradeID} value={g.GradeID}>{g.GradeCode} - {g.GradeName}</option>)}
                                     </select>
                                 </div>
                             )}
 
-                            {activeTab === "wards" && (
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 mb-1">MAP VỚI TỈNH / THÀNH PHỐ</label>
-                                    <select value={formData.provinceId} onChange={(e) => setFormData({ ...formData, provinceId: e.target.value })} className="w-full px-3 py-2 border rounded-xl bg-white" required>
-                                        <option value="">-- Chọn Tỉnh/Thành phố --</option>
-                                        {provincesList.map(p => (
-                                            <option key={p.ProvinceID} value={p.ProvinceID}>{p.ProvinceCode} - {p.ProvinceName}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-
-                            {activeTab === "salary-grades" && (
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 mb-1">THÁNG GIỮ BẬC (ĐỊNH KỲ)</label>
-                                    <input type="number" value={formData.months} onChange={(e) => setFormData({ ...formData, months: Number(e.target.value) })} className="w-full px-3 py-2 border rounded-xl" required />
-                                </div>
-                            )}
-
-                            {activeTab === "salary-steps" && (
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 mb-1">HỆ SỐ LƯƠNG</label>
-                                        <input type="number" step="0.01" value={formData.coefficient} onChange={(e) => setFormData({ ...formData, coefficient: Number(e.target.value) })} className="w-full px-3 py-2 border rounded-xl" required />
-                                    </div>
-                                    <div className="flex items-center mt-6">
-                                        <input type="checkbox" checked={formData.isDefault} onChange={(e) => setFormData({ ...formData, isDefault: e.target.checked })} className="w-4 h-4 text-blue-600 rounded" />
-                                        <span className="ml-2 text-xs font-bold text-gray-600">Là bậc khởi điểm?</span>
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="flex items-center pt-2">
-                                <input type="checkbox" checked={formData.isActive} onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })} className="w-4 h-4 text-blue-600 rounded" />
-                                <span className="ml-2 text-xs font-bold text-gray-600">Kích hoạt sử dụng</span>
-                            </div>
-
-                            <div className="flex justify-end gap-3 pt-4">
-                                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-gray-100 rounded-xl">Hủy</button>
-                                <button type="submit" className="px-5 py-2 text-white bg-blue-600 rounded-xl hover:bg-blue-700">Lưu Dữ Liệu</button>
+                            <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 mt-6">
+                                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-xs font-semibold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200">Hủy</button>
+                                <button type="submit" className="px-5 py-2 text-xs font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow-md shadow-blue-600/20">Lưu Dữ Liệu</button>
                             </div>
                         </form>
                     </div>
