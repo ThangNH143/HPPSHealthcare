@@ -51,7 +51,7 @@ export default function MainLayout() {
                         T
                     </div>
                     <div>
-                        <p className="font-bold text-sm">Nguyễn Hoàng Thắng</p>
+                        <p className="font-bold text-sm">Administrator</p>
                         <p className="text-[11px] text-blue-200 mt-0.5">Quản trị Nhân sự</p>
                     </div>
                 </div>

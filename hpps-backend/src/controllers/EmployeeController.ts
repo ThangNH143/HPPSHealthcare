@@ -1,4 +1,6 @@
+// src/controllers/EmployeeController.ts
 import { Request, Response } from "express";
+import * as ExcelJS from "exceljs";
 import { AppDataSource } from "../config/database";
 import { Employee } from "../entities/Employee";
 import { EmpQualification } from "../entities/EmpQualification";
@@ -7,19 +9,50 @@ import { EmpPosition } from "../entities/EmpPosition";
 
 export class EmployeeController {
     // ==========================================================
-    // 1. LẤY DANH SÁCH TOÀN BỘ NHÂN VIÊN
+    // 1. LẤY DANH SÁCH NHÂN VIÊN (CÓ PHÂN TRANG & TÌM KIẾM TỐI ƯU)
     // ==========================================================
     static async getAllEmployees(req: Request, res: Response) {
         try {
-            const employeeRepo = AppDataSource.getRepository(Employee);
-            const employees = await employeeRepo.find({
-                relations: ["department", "position", "jobTitle"], 
-                order: { FullName: "ASC" as const }
+            // 1. Nhận params, parse cẩn thận chống lỗi kiểu dữ liệu
+            const page = parseInt(req.query.page as string) || 1;
+            const limit = parseInt(req.query.limit as string) || 15;
+            const search = req.query.search as string || "";
+            const departmentId = req.query.departmentId ? parseInt(req.query.departmentId as string) : null;
+            
+            // 2. Gọi Stored Procedure truyền tham số (Chống SQL Injection tuyệt đối)
+            const rawData = await AppDataSource.query(
+                `EXEC sp_GetEmployees_Paginated @Page=@0, @Limit=@1, @Search=@2, @DepartmentID=@3, @IsExport=0`,
+                [page, limit, search, departmentId]
+            );
+
+            // 3. Xử lý logic đếm trang từ cột TotalRecords
+            const total = rawData.length > 0 ? rawData[0].TotalRecords : 0;
+            const totalPages = Math.ceil(total / limit);
+
+            // 4. Map dữ liệu bảng phẳng từ DB thành Object JSON phân cấp cho Frontend
+            const employees = rawData.map((row: any) => ({
+                EmployeeID: row.EmployeeID,
+                EmployeeCode: row.EmployeeCode,
+                FullName: row.FullName,
+                Gender: row.Gender,
+                BirthDate: row.BirthDate,
+                PhoneNumber: row.PhoneNumber,
+                IsActive: row.IsActive,
+                department: row.DepartmentID ? { DepartmentID: row.DepartmentID, DepartmentName: row.DepartmentName } : null,
+                position: row.PositionID ? { PositionID: row.PositionID, PositionName: row.PositionName } : null,
+                jobTitle: row.JobTitleID ? { JobTitleID: row.JobTitleID, JobTitleName: row.JobTitleName } : null,
+            }));
+
+            // 5. Trả về đúng Format DTO
+            return res.status(200).json({ 
+                success: true, 
+                data: employees,
+                meta: { total, totalPages, page, limit }
             });
-            res.status(200).json({ success: true, data: employees });
+
         } catch (error) {
-            console.error("Lỗi khi lấy danh sách nhân viên:", error);
-            res.status(500).json({ success: false, message: "Lỗi Server" });
+            console.error("Lỗi khi gọi Store Danh sách nhân viên:", error);
+            return res.status(500).json({ success: false, message: "Lỗi Server API" });
         }
     }
 
@@ -208,7 +241,6 @@ export class EmployeeController {
             }
 
             // 1. Cập nhật bảng lõi (Dim_Employees)
-            // Ghi đè các trường bằng dữ liệu mới từ req.body
             Object.assign(existingEmployee, {
                 EmployeeCode: data.EmployeeCode,
                 FullName: data.FullName,
@@ -249,7 +281,7 @@ export class EmployeeController {
 
             await employeeRepo.save(existingEmployee);
 
-            // 2. Cập nhật bằng cấp (Xóa cũ, chèn mới cho an toàn & nhanh chóng)
+            // 2. Cập nhật bằng cấp (Xóa cũ, chèn mới cho an toàn)
             if (data.qualifications && Array.isArray(data.qualifications)) {
                 await queryRunner.manager.delete(EmpQualification, { EmployeeID: id });
                 
@@ -263,16 +295,10 @@ export class EmployeeController {
                     qual.IssuePlace = qualData.IssuePlace || null;
                     qual.IssueDateText = qualData.IssueDateText || null;
                     qual.AttachmentURL = qualData.AttachmentURL || null;
-                    // Logic parse date bỏ qua cho gọn, bạn có thể bê lại logic parse ngày từ hàm create vào đây
 
                     await queryRunner.manager.save(qual);
                 }
             }
-
-            // Ghi chú: Việc cập nhật Lịch sử Khoa phòng (Emp_Departments) và Chức vụ (Emp_Positions)
-            // theo chuẩn ERP là phải tạo dòng mới và đóng ngày ValidTo của dòng cũ. 
-            // Chúng ta sẽ xử lý logic phức tạp đó ở màn hình "Employee Profile Dashboard" sau.
-            // Ở Form này, ta tập trung cập nhật trạng thái hiện tại.
 
             await queryRunner.commitTransaction();
             
@@ -292,6 +318,145 @@ export class EmployeeController {
             });
         } finally {
             await queryRunner.release();
+        }
+    }
+
+    // ==========================================================
+    // 5. XUẤT EXCEL DANH SÁCH NHÂN SỰ (GỌI STORED PROCEDURE)
+    // ==========================================================
+    static async exportEmployees(req: Request, res: Response) {
+        try {
+            const search = req.query.search as string || "";
+            const departmentId = req.query.departmentId ? parseInt(req.query.departmentId as string) : null;
+
+            // 1. GỌI STORED PROCEDURE BẢO MẬT (Truyền @IsExport = 1 để lấy tất cả)
+            const rawData = await AppDataSource.query(
+                `EXEC sp_GetEmployees_Paginated @Page=1, @Limit=1, @Search=@0, @DepartmentID=@1, @IsExport=1`,
+                [search, departmentId]
+            );
+
+            // 2. Khởi tạo Workbook Excel
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet("Danh_Sach_Nhan_Su", {
+                views: [{ state: 'frozen', ySplit: 1 }] // Cố định Header
+            });
+
+            // Cấu hình Cột
+            worksheet.columns = [
+                { header: "STT", key: "stt", width: 5 },
+                { header: "Mã NV", key: "code", width: 12 },
+                { header: "Họ và Tên", key: "fullName", width: 25 },
+                { header: "Giới tính", key: "gender", width: 10 },
+                { header: "Ngày sinh", key: "dob", width: 15 },
+                { header: "Số CCCD", key: "cccd", width: 20 },
+                { header: "Ngày cấp CCCD", key: "issueDate", width: 15 },
+                { header: "Nơi cấp", key: "issuePlace", width: 25 },
+                { header: "SĐT", key: "phone", width: 15 },
+                { header: "Email", key: "email", width: 25 },
+                { header: "Dân tộc", key: "ethnicity", width: 15 },
+                { header: "Tôn giáo", key: "religion", width: 15 },
+                { header: "Mã BHYT", key: "bhyt", width: 20 },
+                { header: "Mã BHXH", key: "bhxh", width: 20 },
+                { header: "Tỉnh/TP Thường trú", key: "province", width: 25 },
+                { header: "Xã/Phường", key: "ward", width: 20 },
+                { header: "Địa chỉ chi tiết", key: "address", width: 35 },
+                { header: "Loại nhân sự", key: "empType", width: 20 },
+                { header: "Khoa / Phòng Ban", key: "department", width: 30 },
+                { header: "Chức Vụ", key: "position", width: 25 },
+                { header: "Chức Danh Nghề Nghiệp", key: "jobTitle", width: 25 },
+                { header: "Bậc lương", key: "salaryStep", width: 15 },
+                { header: "Mốc hưởng lương", key: "salaryDate", width: 15 },
+                { header: "Số CCHN", key: "cchn", width: 20 },
+                { header: "Hạn CCHN", key: "cchnExp", width: 15 },
+                { header: "Ngày vào Đảng (CT)", key: "partyDate", width: 15 },
+                { header: "Bằng cấp / Chứng chỉ", key: "quals", width: 40 },
+                { header: "Ghi chú", key: "note", width: 30 },
+                { header: "Trạng thái", key: "status", width: 15 },
+            ];
+
+            // Style Header: Nền Xanh Y Tế (#1D4ED8), Chữ Trắng In Đậm
+            worksheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+            worksheet.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1D4ED8" } };
+            worksheet.getRow(1).alignment = { vertical: "middle", horizontal: "center" };
+
+            // Format ngày tháng
+            const formatDate = (date: any) => {
+                if (!date) return "";
+                return new Date(date).toLocaleDateString("vi-VN");
+            };
+
+            // 3. Đổ dữ liệu (Map trực tiếp từ kết quả Store trả về)
+            rawData.forEach((emp: any, index: number) => {
+                worksheet.addRow({
+                    stt: index + 1,
+                    code: emp.EmployeeCode || "",
+                    fullName: emp.FullName || "",
+                    gender: emp.Gender ? "Nam" : "Nữ",
+                    dob: formatDate(emp.BirthDate),
+                    cccd: emp.IdentityCardNumber || "",
+                    issueDate: formatDate(emp.IdentityCardDate),
+                    issuePlace: emp.IdentityCardPlace || "",
+                    phone: emp.PhoneNumber || "",
+                    email: emp.Email || "",
+                    ethnicity: emp.Ethnicity || "",
+                    religion: emp.Religion || "",
+                    bhyt: emp.BHYT || "",
+                    bhxh: emp.BHXH || "",
+                    province: emp.ProvinceName || "",       
+                    ward: emp.WardName || "",               
+                    address: emp.HamletAddress || "",
+                    empType: emp.EmployeeType || "",
+                    department: emp.DepartmentName || "",   
+                    position: emp.PositionName || "",       
+                    jobTitle: emp.JobTitleName || "",       
+                    salaryStep: emp.StepName || "",         
+                    salaryDate: formatDate(emp.SalaryStartDate),
+                    cchn: emp.LicenseNumber || "",
+                    cchnExp: formatDate(emp.LicenseEndDate),
+                    partyDate: formatDate(emp.PartyJoinDateOfficial),
+                    quals: emp.QualificationsString || "", 
+                    note: emp.Note || "",
+                    status: emp.IsActive ? "Đang làm việc" : "Đã nghỉ việc",
+                });
+            });
+
+            // Gắn Header HTTP để trình duyệt hiểu đây là file tải xuống
+            res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            res.setHeader("Content-Disposition", `attachment; filename=Danh_Sach_Nhan_Su_${new Date().getTime()}.xlsx`);
+
+            await workbook.xlsx.write(res);
+            return res.status(200).end();
+
+        } catch (error) {
+            console.error("Lỗi khi xuất Excel:", error);
+            return res.status(500).json({ success: false, message: "Lỗi Server khi xuất Excel" });
+        }
+    }
+
+    // ==========================================================
+    // 6. LẤY DỮ LIỆU DASHBOARD HỒ SƠ NHÂN SỰ
+    // ==========================================================
+    static async getEmployeeDashboard(req: Request, res: Response) {
+        try {
+            const id = parseInt(req.params.id as string);
+            
+            const rawData = await AppDataSource.query(
+                `EXEC sp_GetEmployeeDashboard_ByID @EmployeeID=@0`, [id]
+            );
+
+            if (!rawData || rawData.length === 0) {
+                 return res.status(404).json({ success: false, message: "Không tìm thấy hồ sơ nhân sự!" });
+            }
+
+            // Dữ liệu Store trả về nằm trong Object key tự sinh của MSSQL (hoặc key rỗng). 
+            // Ta sẽ extract chuỗi JSON đó ra và parse lại.
+            const jsonString = Object.values(rawData[0])[0] as string;
+            const dashboardData = JSON.parse(jsonString);
+
+            return res.status(200).json({ success: true, data: dashboardData });
+        } catch (error) {
+            console.error("Lỗi khi lấy Dashboard nhân viên:", error);
+            return res.status(500).json({ success: false, message: "Lỗi Server" });
         }
     }
 }

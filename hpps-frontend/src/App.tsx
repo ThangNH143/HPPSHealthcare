@@ -1,11 +1,12 @@
 // src/App.tsx
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 // Layout
-import MainLayout from "./components/layouts/MainLayout"; 
+import MainLayout from "./components/layouts/MainLayout";
 // Pages
 import EmployeeList from "./pages/EmployeeList";
 import MasterDataSettings from "./pages/MasterDataSettings";
 import EmployeeForm from "./pages/EmployeeForm";
+import EmployeeProfile from "./pages/EmployeeProfile";
 
 function App() {
     return (
@@ -22,6 +23,7 @@ function App() {
                     
                     <Route path="/employees/new" element={<EmployeeForm />} />
                     <Route path="/employee/edit/:id" element={<EmployeeForm />} />
+                    <Route path="/employee/dashboard/:id" element={<EmployeeProfile />} />
                     
                     {/* (Optional) Có thể thêm trang 404 Not Found ở đây sau này */}
                     {/* <Route path="*" element={<NotFoundPage />} /> */}

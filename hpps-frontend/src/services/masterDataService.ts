@@ -1,7 +1,7 @@
 import api from "./api";
 
 // Hàm xử lý gọi API tổng quát dựa theo tên bảng (Tối ưu hóa tái sử dụng)
-export const getMasterData = async (endpoint: string) => {
+export const getMasterData = async (endpoint: string, params?: { page: number; limit: number }) => {
     const res = await api.get(`/${endpoint}`);
     return res.data.data;
 };

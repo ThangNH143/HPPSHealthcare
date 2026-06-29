@@ -2,12 +2,60 @@
 import { useEffect, useState } from "react";
 import { getMasterData, createMasterData, updateMasterData, deleteMasterData } from "../services/masterDataService";
 
+// Hàm tạo mảng dãy số từ start đến end
+const range = (start: number, end: number) => {
+    return Array.from({ length: end - start + 1 }, (_, idx) => idx + start);
+};
+
+// Thuật toán tính toán các nút phân trang (Ellipsis Pagination)
+const getPaginationRange = (currentPage: number, totalPages: number) => {
+    const siblingCount = 3; 
+    
+    if (totalPages <= 7 + siblingCount) {
+        return range(1, totalPages);
+    }
+
+    const leftSiblingIndex = Math.max(currentPage - siblingCount, 1);
+    const rightSiblingIndex = Math.min(currentPage + siblingCount, totalPages);
+
+    const showLeftDots = leftSiblingIndex > 2;
+    const showRightDots = rightSiblingIndex < totalPages - 2;
+
+    const firstPageIndex = 1;
+    const lastPageIndex = totalPages;
+
+    if (!showLeftDots && showRightDots) {
+        let leftItemCount = 3 + 2 * siblingCount;
+        let leftRange = range(1, leftItemCount);
+        return [...leftRange, '...', totalPages];
+    }
+
+    if (showLeftDots && !showRightDots) {
+        let rightItemCount = 3 + 2 * siblingCount;
+        let rightRange = range(totalPages - rightItemCount + 1, totalPages);
+        return [firstPageIndex, '...', ...rightRange];
+    }
+
+    if (showLeftDots && showRightDots) {
+        let middleRange = range(leftSiblingIndex, rightSiblingIndex);
+        return [firstPageIndex, '...', ...middleRange, '...', lastPageIndex];
+    }
+    
+    return range(1, totalPages);
+};
+
 export default function MasterDataSettings() {
     const [activeTab, setActiveTab] = useState("departments");
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     
-    // Lưu danh sách Ngạch lương & Tỉnh/Thành để làm Dropdown
+    // State phân trang
+    const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(15);
+    const [totalRecords, setTotalRecords] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
+    
+    // Lưu danh sách tĩnh để làm Dropdown
     const [gradesList, setGradesList] = useState<any[]>([]);
     const [provincesList, setProvincesList] = useState<any[]>([]);
 
@@ -33,22 +81,64 @@ export default function MasterDataSettings() {
     const loadData = async () => {
         setLoading(true);
         try {
-            const result = await getMasterData(activeTab);
-            setData(result?.data || (Array.isArray(result) ? result : []));
+            // Truyền page và limit xuống hàm API (nếu API support)
+            const result = await getMasterData(activeTab, { page, limit });
             
-            const grades = await getMasterData("salary-grades");
-            setGradesList(grades?.data || (Array.isArray(grades) ? grades : []));
+            // Xử lý Fallback thông minh: Hỗ trợ cả Server-side Pagination & Client-side
+            let rawData = result?.data || (Array.isArray(result) ? result : []);
+            let meta = result?.meta;
+
+            if (meta) {
+                // Nếu Backend đã có phân trang
+                setData(rawData);
+                setTotalRecords(meta.total);
+                setTotalPages(meta.totalPages);
+            } else {
+                // Nếu Backend trả toàn bộ dữ liệu (Client-side pagination)
+                setTotalRecords(rawData.length);
+                const calculatedTotalPages = Math.ceil(rawData.length / limit);
+                setTotalPages(calculatedTotalPages);
+                
+                // Tránh lỗi khi trang hiện tại vượt quá tổng số trang mới
+                const safePage = page > calculatedTotalPages ? Math.max(1, calculatedTotalPages) : page;
+                if (safePage !== page) setPage(safePage);
+                
+                const startIndex = (safePage - 1) * limit;
+                setData(rawData.slice(startIndex, startIndex + limit));
+            }
             
-            const provs = await getMasterData("provinces");
-            setProvincesList(provs?.data || (Array.isArray(provs) ? provs : []));
+            // Lấy dữ liệu dropdown không phân trang
+            if (["job-titles", "salary-steps"].includes(activeTab) && gradesList.length === 0) {
+                const grades = await getMasterData("salary-grades");
+                setGradesList(grades?.data || (Array.isArray(grades) ? grades : []));
+            }
+            
+            if (activeTab === "wards" && provincesList.length === 0) {
+                const provs = await getMasterData("provinces");
+                setProvincesList(provs?.data || (Array.isArray(provs) ? provs : []));
+            }
+
         } catch (error) {
-            alert("Không thể kết nối dữ liệu danh mục y tế!");
+            console.error("Lỗi tải danh mục:", error);
+            // alert("Không thể kết nối dữ liệu danh mục y tế!");
         } finally {
             setLoading(false);
         }
     };
 
-    useEffect(() => { loadData(); }, [activeTab]);
+    // Gọi lại API khi activeTab, page, hoặc limit thay đổi
+    useEffect(() => { 
+        loadData(); 
+    }, [activeTab, page, limit]);
+
+    // Handle đổi Tab -> Phải reset trang về 1
+    const handleTabChange = (tabId: string) => {
+        if (activeTab !== tabId) {
+            setActiveTab(tabId);
+            setPage(1);
+            setData([]); // Xóa dữ liệu cũ để hiện loading
+        }
+    };
 
     const getIdField = () => {
         const idMap: Record<string, string> = {
@@ -159,7 +249,10 @@ export default function MasterDataSettings() {
             <div className="flex justify-between items-end mb-4 flex-shrink-0">
                 <div>
                     <h2 className="text-2xl font-bold text-[#1E293B]">Cấu hình Danh mục nền</h2>
-                    <p className="text-xs text-gray-500 mt-1">Quản lý các tham số cốt lõi cho hệ thống nhân sự bệnh viện</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                        Hiển thị danh mục <span className="font-bold text-blue-600">{menuItems.find(m => m.id === activeTab)?.name.split(" ")[1]}</span>
+                        {" "} - Tổng cộng: <span className="font-bold text-gray-700">{totalRecords}</span> bản ghi.
+                    </p>
                 </div>
                 <button 
                     onClick={handleOpenAdd} 
@@ -169,17 +262,12 @@ export default function MasterDataSettings() {
                 </button>
             </div>
 
-            {/* 2. HORIZONTAL SCROLLABLE TABS (DẠNG PILL) */}
+            {/* 2. HORIZONTAL SCROLLABLE TABS */}
             <div className="flex gap-2 overflow-x-auto pb-3 mb-4 flex-shrink-0 [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400 [&::-webkit-scrollbar-thumb]:rounded-full transition-all">
                 {menuItems.map((item) => (
                     <button
                         key={item.id}
-                        onClick={() => { 
-                            if (activeTab !== item.id) {
-                                setActiveTab(item.id); 
-                                setData([]); 
-                            }
-                        }}
+                        onClick={() => handleTabChange(item.id)}
                         className={`whitespace-nowrap px-4 py-2 text-xs font-semibold rounded-full transition-all border ${
                             activeTab === item.id 
                                 ? "bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/20" 
@@ -192,52 +280,30 @@ export default function MasterDataSettings() {
             </div>
 
             {/* 3. BẢNG DỮ LIỆU */}
-            <div className="flex-1 overflow-auto bg-white rounded-2xl border border-gray-100 shadow-[0_12px_30px_rgba(14,165,233,0.06)] flex flex-col min-h-0">
+            <div className="flex-1 overflow-auto bg-white rounded-t-2xl border border-gray-100 shadow-[0_4px_20px_rgba(14,165,233,0.05)] flex flex-col min-h-0">
                 <div className="inline-block min-w-full align-middle overflow-auto h-full">
                     <table className="min-w-full table-auto border-collapse text-left relative">
                         <thead className="sticky top-0 bg-[#1D4ED8] z-10 shadow-md">
                             <tr>
-                                <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider border-r border-blue-700/50 w-24">
-                                    ID
-                                </th>
-                                
+                                <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider border-r border-blue-700/50 w-24">ID</th>
                                 {["departments", "salary-grades", "provinces", "wards"].includes(activeTab) && (
-                                    <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider border-r border-blue-700/50">
-                                        Mã Code
-                                    </th>
+                                    <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider border-r border-blue-700/50">Mã Code</th>
                                 )}
-                                
-                                <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider border-r border-blue-700/50">
-                                    Tên Danh Mục
-                                </th>
-                                
+                                <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider border-r border-blue-700/50">Tên Danh Mục</th>
                                 {(activeTab === "job-titles" || activeTab === "salary-steps") && (
-                                    <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider border-r border-blue-700/50">
-                                        Thuộc Ngạch Lương
-                                    </th>
+                                    <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider border-r border-blue-700/50">Thuộc Ngạch Lương</th>
                                 )}
                                 {activeTab === "wards" && (
-                                    <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider border-r border-blue-700/50">
-                                        Thuộc Tỉnh/Thành
-                                    </th>
+                                    <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider border-r border-blue-700/50">Thuộc Tỉnh/Thành</th>
                                 )}
                                 {activeTab === "salary-grades" && (
-                                    <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider border-r border-blue-700/50">
-                                        Tháng giữ bậc
-                                    </th>
+                                    <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider border-r border-blue-700/50">Tháng giữ bậc</th>
                                 )}
                                 {activeTab === "salary-steps" && (
-                                    <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider border-r border-blue-700/50">
-                                        Hệ số
-                                    </th>
+                                    <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider border-r border-blue-700/50">Hệ số</th>
                                 )}
-                                
-                                <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider text-center border-r border-blue-700/50">
-                                    Trạng Thái
-                                </th>
-                                <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider text-center w-32">
-                                    Thao Tác
-                                </th>
+                                <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider text-center border-r border-blue-700/50">Trạng Thái</th>
+                                <th className="px-6 py-4 text-[11px] font-bold text-white uppercase tracking-wider text-center w-32">Thao Tác</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -303,16 +369,73 @@ export default function MasterDataSettings() {
                 </div>
             </div>
 
-            {/* POPUP MODAL (Giữ nguyên logic của bạn, chỉ tinh chỉnh bo góc xíu cho đồng bộ) */}
+            {/* 4. KHỐI PAGINATION (PHÂN TRANG) */}
+            <div className="bg-white border border-t-0 border-gray-100 rounded-b-2xl p-4 flex items-center justify-between flex-shrink-0 shadow-[0_4px_20px_rgba(14,165,233,0.05)]">
+                <div className="text-xs text-gray-500 flex items-center gap-2">
+                    <span>Hiển thị</span>
+                    <select 
+                        value={limit} 
+                        onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+                        className="border border-gray-200 rounded px-2 py-1 bg-gray-50 outline-none focus:border-blue-500 transition-colors cursor-pointer"
+                    >
+                        <option value={10}>10</option>
+                        <option value={15}>15</option>
+                        <option value={30}>30</option>
+                        <option value={50}>50</option>
+                    </select>
+                    <span>bản ghi mỗi trang</span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                    <button 
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                        className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                        Trang trước
+                    </button>
+                    
+                    {getPaginationRange(page, totalPages === 0 ? 1 : totalPages).map((pageNumber, index) => {
+                        if (pageNumber === '...') {
+                            return (
+                                <span key={`ellipsis-${index}`} className="px-1.5 py-1.5 text-xs font-medium text-gray-500 tracking-wider">
+                                    ...
+                                </span>
+                            );
+                        }
+                        return (
+                            <button
+                                key={`page-${pageNumber}`}
+                                onClick={() => setPage(pageNumber as number)}
+                                className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
+                                    page === pageNumber 
+                                    ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-500/30" 
+                                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300 hover:text-blue-600"
+                                }`}
+                            >
+                                {pageNumber}
+                            </button>
+                        );
+                    })}
+
+                    <button 
+                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                        disabled={page >= totalPages || totalPages === 0}
+                        className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                        Trang sau
+                    </button>
+                </div>
+            </div>
+
+            {/* POPUP MODAL */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50">
-                    {/* ... (Phần nội dung Modal giữ nguyên như code cũ của bạn) ... */}
                     <div className="bg-white rounded-2xl w-[480px] shadow-2xl overflow-hidden">
                         <div className="p-5 bg-[#F8FAFC] border-b border-gray-100 flex justify-between items-center">
                             <h3 className="font-bold text-[#1E293B] text-sm">{editingItem ? "✏️ Hiệu chỉnh danh mục" : "✨ Thêm mới danh mục"}</h3>
                             <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 font-bold">✕</button>
                         </div>
-
                         <form onSubmit={handleSubmit} className="p-6 space-y-4">
                             {["departments", "salary-grades", "provinces", "wards"].includes(activeTab) && (
                                 <div>
@@ -320,13 +443,10 @@ export default function MasterDataSettings() {
                                     <input type="text" value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value })} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:ring-1 focus:ring-blue-500 outline-none" required />
                                 </div>
                             )}
-
                             <div>
                                 <label className="block text-[10px] font-bold text-gray-500 mb-1.5 uppercase">Tên Danh Mục</label>
                                 <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:ring-1 focus:ring-blue-500 outline-none" required />
                             </div>
-
-                            {/* ... Các trường select/input khác tương tự ... */}
                             {(activeTab === "job-titles" || activeTab === "salary-steps") && (
                                 <div>
                                     <label className="block text-[10px] font-bold text-gray-500 mb-1.5 uppercase">Map với Ngạch Lương</label>
@@ -336,7 +456,6 @@ export default function MasterDataSettings() {
                                     </select>
                                 </div>
                             )}
-
                             <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 mt-6">
                                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-xs font-semibold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200">Hủy</button>
                                 <button type="submit" className="px-5 py-2 text-xs font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow-md shadow-blue-600/20">Lưu Dữ Liệu</button>
